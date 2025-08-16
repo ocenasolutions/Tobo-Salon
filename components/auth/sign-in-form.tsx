@@ -55,7 +55,7 @@ export default function SignInForm() {
       document.cookie = `auth-token=${data.token}; path=/; max-age=${7 * 24 * 60 * 60}` // 7 days
 
       // Redirect to packages page
-      window.location.href = "/packages"
+      window.location.href = "/dashboard"
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong")
     } finally {
