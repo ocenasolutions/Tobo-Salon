@@ -1,6 +1,7 @@
 export interface InventoryItem {
   _id?: string
   name: string
+  brandName: string
   expiryDate?: Date
   quantity: number
   pricePerUnit: number

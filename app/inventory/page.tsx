@@ -15,6 +15,7 @@ import { useToast } from "@/hooks/use-toast"
 interface InventoryItem {
   _id: string
   name: string
+  brandName: string
   expiryDate?: string
   quantity: number
   pricePerUnit: number
@@ -35,6 +36,7 @@ export default function InventoryPage() {
 
   const [formData, setFormData] = useState({
     name: "",
+    brandName: "",
     expiryDate: "",
     quantity: "",
     pricePerUnit: "",
@@ -116,7 +118,7 @@ export default function InventoryPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    if (!formData.name || !formData.quantity || !formData.pricePerUnit) {
+    if (!formData.name || !formData.brandName || !formData.quantity || !formData.pricePerUnit) {
       toast({
         title: "Validation Error",
         description: "Please fill in all mandatory fields",
@@ -130,6 +132,7 @@ export default function InventoryPage() {
     try {
       const itemData = {
         name: formData.name,
+        brandName: formData.brandName,
         expiryDate: formData.expiryDate || null,
         quantity: Number(formData.quantity),
         pricePerUnit: Number(formData.pricePerUnit),
@@ -154,6 +157,7 @@ export default function InventoryPage() {
 
       setFormData({
         name: "",
+        brandName: "",
         expiryDate: "",
         quantity: "",
         pricePerUnit: "",
@@ -175,6 +179,7 @@ export default function InventoryPage() {
   const handleEdit = (item: InventoryItem) => {
     setFormData({
       name: item.name,
+      brandName: item.brandName,
       expiryDate: item.expiryDate || "",
       quantity: item.quantity.toString(),
       pricePerUnit: item.pricePerUnit.toString(),
@@ -203,7 +208,11 @@ export default function InventoryPage() {
     }
   }
 
-  const filteredItems = items.filter((item) => item.name.toLowerCase().includes(searchTerm.toLowerCase()))
+  const filteredItems = items.filter(
+    (item) =>
+      item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      item.brandName.toLowerCase().includes(searchTerm.toLowerCase()),
+  )
 
   const totalValue = items.reduce((sum, item) => sum + item.total, 0)
   const paidValue = items.filter((item) => item.paymentStatus === "Paid").reduce((sum, item) => sum + item.total, 0)
@@ -223,7 +232,6 @@ export default function InventoryPage() {
   return (
     <DashboardLayout>
       <div className="space-y-6">
-        {/* Header Stats */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <Card>
             <CardHeader className="pb-2">
@@ -259,7 +267,6 @@ export default function InventoryPage() {
           </Card>
         </div>
 
-        {/* Add Item Form */}
         {isAddingItem && (
           <Card>
             <CardHeader>
@@ -276,6 +283,16 @@ export default function InventoryPage() {
                       value={formData.name}
                       onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                       placeholder="Product name"
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="brandName">Brand Name *</Label>
+                    <Input
+                      id="brandName"
+                      value={formData.brandName}
+                      onChange={(e) => setFormData({ ...formData, brandName: e.target.value })}
+                      placeholder="Brand name"
                       required
                     />
                   </div>
@@ -353,6 +370,7 @@ export default function InventoryPage() {
                       setEditingItem(null)
                       setFormData({
                         name: "",
+                        brandName: "",
                         expiryDate: "",
                         quantity: "",
                         pricePerUnit: "",
@@ -369,7 +387,6 @@ export default function InventoryPage() {
           </Card>
         )}
 
-        {/* Controls */}
         <div className="flex flex-col sm:flex-row gap-4 justify-between">
           <div className="relative flex-1 max-w-sm">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
@@ -386,7 +403,6 @@ export default function InventoryPage() {
           </Button>
         </div>
 
-        {/* Items List */}
         <div className="grid gap-4">
           {filteredItems.length === 0 ? (
             <Card>
@@ -406,11 +422,20 @@ export default function InventoryPage() {
                     <div className="space-y-2">
                       <div className="flex items-center gap-2">
                         <h3 className="font-semibold text-lg">{item.name}</h3>
+                        <Badge
+                          variant="secondary"
+                          className="text-xs font-medium bg-blue-100 text-blue-800 border-blue-200"
+                        >
+                          {item.brandName}
+                        </Badge>
                         <Badge variant={item.paymentStatus === "Paid" ? "default" : "destructive"}>
                           {item.paymentStatus}
                         </Badge>
                       </div>
                       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm text-muted-foreground">
+                        <div>
+                          <span className="font-medium">Brand:</span> {item.brandName}
+                        </div>
                         <div>
                           <span className="font-medium">Quantity:</span> {item.quantity}
                         </div>
