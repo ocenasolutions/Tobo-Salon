@@ -24,27 +24,45 @@ export async function GET(request: NextRequest) {
 
     // Get today's date range
     const today = new Date()
-    const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate())
-    const endOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1)
+    const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate()) // 12:00 AM
+    const noonToday = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 12, 0, 0) // 12:00 PM
 
-    // Get today's bills
-    const todaysBills = await billsCollection
+    // Get morning bills only (12 AM to 12 PM)
+    const morningBills = await billsCollection
       .find({
         userId: new ObjectId(decoded.userId),
         createdAt: {
           $gte: startOfDay,
-          $lt: endOfDay,
+          $lt: noonToday,
         },
       })
       .toArray()
 
-    // Calculate today's total sales
-    const todaysTotalSales = todaysBills.reduce((sum, bill) => sum + bill.totalAmount, 0)
+    const todaysTotalSales = morningBills.reduce((sum, bill) => sum + bill.totalAmount, 0)
 
-    // Find highest bill of the day
-    const highestBillToday = todaysBills.reduce(
+    const highestBillToday = morningBills.reduce(
       (highest, bill) => (bill.totalAmount > highest.totalAmount ? bill : highest),
       { totalAmount: 0, _id: null, items: [], createdAt: new Date(), userId: new ObjectId(), updatedAt: new Date() },
+    )
+
+    const morningPackageStats = morningBills.reduce(
+      (stats, bill) => {
+        bill.items.forEach((item) => {
+          if (stats[item.packageName]) {
+            stats[item.packageName] += item.quantity
+          } else {
+            stats[item.packageName] = item.quantity
+          }
+        })
+        return stats
+      },
+      {} as Record<string, number>,
+    )
+
+    const totalMorningPackages = Object.values(morningPackageStats).reduce((sum, count) => sum + count, 0)
+    const mostUsedPackage = Object.entries(morningPackageStats).reduce(
+      (most, [packageName, count]) => (count > most.count ? { name: packageName, count } : most),
+      { name: "", count: 0 },
     )
 
     // Get total number of packages
@@ -79,9 +97,14 @@ export async function GET(request: NextRequest) {
 
     const inventoryStats = inventoryValue[0] || { totalValue: 0, paidValue: 0, unpaidValue: 0 }
 
-    // Get recent bills (last 15 for editing)
     const recentBills = await billsCollection
-      .find({ userId: new ObjectId(decoded.userId) })
+      .find({
+        userId: new ObjectId(decoded.userId),
+        createdAt: {
+          $gte: startOfDay,
+          $lt: noonToday,
+        },
+      })
       .sort({ createdAt: -1 })
       .limit(15)
       .toArray()
@@ -147,7 +170,9 @@ export async function GET(request: NextRequest) {
         thisMonthsInventoryExpenses,
         thisWeeksProfit,
         thisMonthsProfit,
-        todaysBillsCount: todaysBills.length,
+        todaysBillsCount: morningBills.length,
+        totalMorningPackages,
+        mostUsedPackage: mostUsedPackage.count > 0 ? mostUsedPackage : null,
       },
       { status: 200 },
     )

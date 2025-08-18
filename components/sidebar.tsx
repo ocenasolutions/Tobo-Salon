@@ -27,7 +27,7 @@ const navigation = [
     description: "Overview & Analytics",
   },
   {
-    name: "Packages",
+    name: "Services",
     href: "/packages",
     icon: Package,
     description: "Service Packages",
