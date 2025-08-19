@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Plus, Receipt, Edit, Trash2 } from "lucide-react"
+import { Plus, Receipt, Edit, Trash2, Share2 } from "lucide-react"
 import type { Bill } from "@/lib/models/Bill"
 import type { Package } from "@/lib/models/Package"
 import CreateBillDialog from "@/components/bills/create-bill-dialog"
@@ -81,6 +81,18 @@ export default function BillsPage() {
 
   const isEditable = (bill: Bill, index: number) => {
     return index < 15 // Only last 15 bills are editable
+  }
+
+  const shareToWhatsApp = (bill: Bill) => {
+    if (!bill.customerMobile) {
+      alert("No customer mobile number available for this bill")
+      return
+    }
+
+    const message = `Hello ${bill.clientName}! 🌸\n\nYour total bill was ₹${bill.totalAmount.toFixed(2)}\n\nThank you for visiting Husn Beauty Salon! ✨\n\nWe hope you loved your experience with us. Looking forward to seeing you again soon! 💄`
+
+    const whatsappUrl = `https://wa.me/${bill.customerMobile.replace(/[^0-9]/g, "")}?text=${encodeURIComponent(message)}`
+    window.open(whatsappUrl, "_blank")
   }
 
   if (loading) {
@@ -166,32 +178,50 @@ export default function BillsPage() {
                     </div>
                     <div className="flex flex-col sm:flex-row sm:items-center gap-2">
                       <span className="text-3xl font-serif font-bold text-primary">₹{bill.totalAmount.toFixed(2)}</span>
-                      {isEditable(bill, index) && (
-                        <div className="flex gap-1">
+                      <div className="flex gap-1">
+                        {bill.customerMobile && (
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => setEditingBill(bill)}
-                            className="h-8 w-8 p-0"
+                            onClick={() => shareToWhatsApp(bill)}
+                            className="h-8 w-8 p-0 text-green-600 hover:text-green-700"
+                            title="Share on WhatsApp"
                           >
-                            <Edit className="h-4 w-4" />
+                            <Share2 className="h-4 w-4" />
                           </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => setDeletingBill(bill)}
-                            className="h-8 w-8 p-0 text-destructive hover:text-destructive"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      )}
+                        )}
+                        {isEditable(bill, index) && (
+                          <>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setEditingBill(bill)}
+                              className="h-8 w-8 p-0"
+                            >
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setDeletingBill(bill)}
+                              className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-3">
-                    <h4 className="font-semibold text-foreground mb-2">Services Included:</h4>
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                      <h4 className="font-semibold text-foreground">Services Included:</h4>
+                      {bill.customerMobile && (
+                        <span className="text-sm text-muted-foreground">Customer: {bill.customerMobile}</span>
+                      )}
+                    </div>
                     {bill.items.map((item, itemIndex) => (
                       <div
                         key={itemIndex}

@@ -16,9 +16,12 @@ interface InventoryItem {
   _id: string
   name: string
   brandName: string
-  expiryDate?: string
+  category: string
   quantity: number
+  shadesCode?: string
+  stockIn: number
   pricePerUnit: number
+  expiryDate?: string
   total: number
   paymentStatus: "Paid" | "Unpaid"
   dateEntered: string
@@ -37,6 +40,9 @@ export default function InventoryPage() {
   const [formData, setFormData] = useState({
     name: "",
     brandName: "",
+    category: "",
+    shadesCode: "",
+    stockIn: "",
     expiryDate: "",
     quantity: "",
     pricePerUnit: "",
@@ -118,10 +124,18 @@ export default function InventoryPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    if (!formData.name || !formData.brandName || !formData.quantity || !formData.pricePerUnit) {
+    if (
+      !formData.name ||
+      !formData.brandName ||
+      !formData.category ||
+      !formData.quantity ||
+      !formData.stockIn ||
+      !formData.pricePerUnit
+    ) {
       toast({
         title: "Validation Error",
-        description: "Please fill in all mandatory fields",
+        description:
+          "Please fill in all mandatory fields: Item Name, Brand Name, Category, Quantity, Stock In, and Unit Price",
         variant: "destructive",
       })
       return
@@ -133,6 +147,9 @@ export default function InventoryPage() {
       const itemData = {
         name: formData.name,
         brandName: formData.brandName,
+        category: formData.category,
+        shadesCode: formData.shadesCode || undefined,
+        stockIn: Number(formData.stockIn),
         expiryDate: formData.expiryDate || null,
         quantity: Number(formData.quantity),
         pricePerUnit: Number(formData.pricePerUnit),
@@ -158,6 +175,9 @@ export default function InventoryPage() {
       setFormData({
         name: "",
         brandName: "",
+        category: "",
+        shadesCode: "",
+        stockIn: "",
         expiryDate: "",
         quantity: "",
         pricePerUnit: "",
@@ -180,6 +200,9 @@ export default function InventoryPage() {
     setFormData({
       name: item.name,
       brandName: item.brandName,
+      category: item.category,
+      shadesCode: item.shadesCode || "",
+      stockIn: item.stockIn.toString(),
       expiryDate: item.expiryDate || "",
       quantity: item.quantity.toString(),
       pricePerUnit: item.pricePerUnit.toString(),
@@ -211,7 +234,8 @@ export default function InventoryPage() {
   const filteredItems = items.filter(
     (item) =>
       item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.brandName.toLowerCase().includes(searchTerm.toLowerCase()),
+      item.brandName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      item.category.toLowerCase().includes(searchTerm.toLowerCase()),
   )
 
   const totalValue = items.reduce((sum, item) => sum + item.total, 0)
@@ -271,13 +295,13 @@ export default function InventoryPage() {
           <Card>
             <CardHeader>
               <CardTitle>{editingItem ? "Edit Product" : "Add New Product"}</CardTitle>
-              <CardDescription>Enter the details of the product you bought</CardDescription>
+              <CardDescription>Enter the details of the product. Fields marked with * are mandatory.</CardDescription>
             </CardHeader>
             <CardContent>
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="name">Name *</Label>
+                    <Label htmlFor="name">Item Name *</Label>
                     <Input
                       id="name"
                       value={formData.name}
@@ -297,6 +321,59 @@ export default function InventoryPage() {
                     />
                   </div>
                   <div className="space-y-2">
+                    <Label htmlFor="category">Category *</Label>
+                    <Input
+                      id="category"
+                      value={formData.category}
+                      onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                      placeholder="Product category (e.g., Hair Care, Skin Care)"
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="shadesCode">Shades Code</Label>
+                    <Input
+                      id="shadesCode"
+                      value={formData.shadesCode}
+                      onChange={(e) => setFormData({ ...formData, shadesCode: e.target.value })}
+                      placeholder="Color/shade code (optional)"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="stockIn">Stock In *</Label>
+                    <Input
+                      id="stockIn"
+                      type="number"
+                      value={formData.stockIn}
+                      onChange={(e) => setFormData({ ...formData, stockIn: e.target.value })}
+                      placeholder="Initial stock quantity"
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="quantity">Current Quantity *</Label>
+                    <Input
+                      id="quantity"
+                      type="number"
+                      value={formData.quantity}
+                      onChange={(e) => setFormData({ ...formData, quantity: e.target.value })}
+                      placeholder="Current available quantity"
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="pricePerUnit">Unit Price *</Label>
+                    <Input
+                      id="pricePerUnit"
+                      type="number"
+                      step="0.01"
+                      value={formData.pricePerUnit}
+                      onChange={(e) => setFormData({ ...formData, pricePerUnit: e.target.value })}
+                      placeholder="Price per unit"
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
                     <Label htmlFor="expiryDate">Expiry Date</Label>
                     <Input
                       id="expiryDate"
@@ -306,30 +383,7 @@ export default function InventoryPage() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="quantity">Quantity *</Label>
-                    <Input
-                      id="quantity"
-                      type="number"
-                      value={formData.quantity}
-                      onChange={(e) => setFormData({ ...formData, quantity: e.target.value })}
-                      placeholder="Enter quantity"
-                      required
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="pricePerUnit">Price Per Unit *</Label>
-                    <Input
-                      id="pricePerUnit"
-                      type="number"
-                      step="0.01"
-                      value={formData.pricePerUnit}
-                      onChange={(e) => setFormData({ ...formData, pricePerUnit: e.target.value })}
-                      placeholder="Enter price per unit"
-                      required
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="total">Total</Label>
+                    <Label htmlFor="total">Total Value</Label>
                     <Input
                       id="total"
                       value={
@@ -371,6 +425,9 @@ export default function InventoryPage() {
                       setFormData({
                         name: "",
                         brandName: "",
+                        category: "",
+                        shadesCode: "",
+                        stockIn: "",
                         expiryDate: "",
                         quantity: "",
                         pricePerUnit: "",
@@ -420,7 +477,7 @@ export default function InventoryPage() {
                 <CardContent className="p-6">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <div className="space-y-2">
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <h3 className="font-semibold text-lg">{item.name}</h3>
                         <Badge
                           variant="secondary"
@@ -428,28 +485,42 @@ export default function InventoryPage() {
                         >
                           {item.brandName}
                         </Badge>
+                        <Badge
+                          variant="outline"
+                          className="text-xs font-medium bg-purple-50 text-purple-700 border-purple-200"
+                        >
+                          {item.category}
+                        </Badge>
                         <Badge variant={item.paymentStatus === "Paid" ? "default" : "destructive"}>
                           {item.paymentStatus}
                         </Badge>
                       </div>
                       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm text-muted-foreground">
                         <div>
-                          <span className="font-medium">Brand:</span> {item.brandName}
+                          <span className="font-medium">Category:</span> {item.category}
                         </div>
                         <div>
-                          <span className="font-medium">Quantity:</span> {item.quantity}
+                          <span className="font-medium">Current Stock:</span> {item.quantity}
                         </div>
                         <div>
-                          <span className="font-medium">Price/Unit:</span> ₹{item.pricePerUnit.toFixed(2)}
+                          <span className="font-medium">Stock In:</span> {item.stockIn}
                         </div>
                         <div>
-                          <span className="font-medium">Total:</span> ₹{item.total.toFixed(2)}
+                          <span className="font-medium">Unit Price:</span> ₹{item.pricePerUnit.toFixed(2)}
+                        </div>
+                        {item.shadesCode && (
+                          <div>
+                            <span className="font-medium">Shade:</span> {item.shadesCode}
+                          </div>
+                        )}
+                        <div>
+                          <span className="font-medium">Total Value:</span> ₹{item.total.toFixed(2)}
                         </div>
                         <div>
                           <span className="font-medium">Added:</span> {item.dateEntered}
                         </div>
                         {item.expiryDate && (
-                          <div className="col-span-2">
+                          <div>
                             <span className="font-medium">Expires:</span> {item.expiryDate}
                           </div>
                         )}

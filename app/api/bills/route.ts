@@ -1,9 +1,10 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { getDatabase } from "@/lib/mongodb"
 import type { Bill, BillItem } from "@/lib/models/Bill"
-import type { Package } from "@/lib/models/Package"
+import type { Package, ProductSale } from "@/lib/models/Package"
 import { ObjectId } from "mongodb"
 import jwt from "jsonwebtoken"
+import { WhatsAppService } from "@/lib/whatsapp"
 
 export const runtime = "nodejs"
 
@@ -58,16 +59,35 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const { packageIds } = await request.json()
+    const {
+      packageIds,
+      clientName,
+      customerMobile,
+      upiAmount,
+      cardAmount,
+      cashAmount,
+      attendantBy,
+      productSales,
+      expenditures,
+    } = await request.json()
 
     // Validation
     if (!packageIds || !Array.isArray(packageIds) || packageIds.length === 0) {
-      return NextResponse.json({ error: "At least one package must be selected" }, { status: 400 })
+      return NextResponse.json({ error: "At least one service must be selected" }, { status: 400 })
+    }
+
+    if (!clientName || !clientName.trim()) {
+      return NextResponse.json({ error: "Client name is required" }, { status: 400 })
+    }
+
+    if (!attendantBy || !attendantBy.trim()) {
+      return NextResponse.json({ error: "Attendant name is required" }, { status: 400 })
     }
 
     const db = await getDatabase()
     const packagesCollection = db.collection<Package>("packages")
     const billsCollection = db.collection<Bill>("bills")
+    const inventoryCollection = db.collection("inventory")
 
     // Fetch selected packages
     const packages = await packagesCollection
@@ -78,7 +98,7 @@ export async function POST(request: NextRequest) {
       .toArray()
 
     if (packages.length !== packageIds.length) {
-      return NextResponse.json({ error: "Some packages not found" }, { status: 400 })
+      return NextResponse.json({ error: "Some services not found" }, { status: 400 })
     }
 
     // Create bill items
@@ -89,20 +109,96 @@ export async function POST(request: NextRequest) {
       packageType: pkg.type,
     }))
 
+    let productSalesTotal = 0
+    const processedProductSales: ProductSale[] = []
+
+    if (productSales && Array.isArray(productSales)) {
+      for (const sale of productSales) {
+        const { inventoryId, quantitySold } = sale
+
+        // Fetch inventory item
+        const inventoryItem = await inventoryCollection.findOne({
+          _id: new ObjectId(inventoryId),
+          userId: new ObjectId(userId),
+        })
+
+        if (!inventoryItem) {
+          return NextResponse.json({ error: `Product not found: ${inventoryId}` }, { status: 400 })
+        }
+
+        if (inventoryItem.quantity < quantitySold) {
+          return NextResponse.json(
+            {
+              error: `Insufficient stock for ${inventoryItem.name}. Available: ${inventoryItem.quantity}, Requested: ${quantitySold}`,
+            },
+            { status: 400 },
+          )
+        }
+
+        // Update inventory quantity
+        await inventoryCollection.updateOne(
+          { _id: new ObjectId(inventoryId) },
+          {
+            $inc: { quantity: -quantitySold },
+            $set: { updatedAt: new Date() },
+          },
+        )
+
+        const saleTotal = quantitySold * inventoryItem.pricePerUnit
+        productSalesTotal += saleTotal
+
+        processedProductSales.push({
+          inventoryId: new ObjectId(inventoryId),
+          productName: inventoryItem.name,
+          brandName: inventoryItem.brandName,
+          quantitySold,
+          pricePerUnit: inventoryItem.pricePerUnit,
+          totalPrice: saleTotal,
+        })
+      }
+    }
+
+    let expendituresTotal = 0
+    const processedExpenditures = expenditures || []
+
+    if (expenditures && Array.isArray(expenditures)) {
+      expendituresTotal = expenditures.reduce((sum: number, exp: any) => sum + (exp.price || 0), 0)
+    }
+
     // Calculate total
-    const totalAmount = billItems.reduce((sum, item) => sum + item.packagePrice, 0)
+    const servicesTotal = billItems.reduce((sum, item) => sum + item.packagePrice, 0)
+    const totalAmount = servicesTotal + productSalesTotal + expendituresTotal
 
     const newBill: Bill = {
       userId: new ObjectId(userId),
       items: billItems,
       totalAmount,
+      clientName: clientName.trim(),
+      customerMobile: customerMobile?.trim() || undefined,
+      upiAmount: upiAmount || 0,
+      cardAmount: cardAmount || 0,
+      cashAmount: cashAmount || 0,
+      attendantBy: attendantBy.trim(),
+      productSale: productSalesTotal,
+      productSales: processedProductSales,
+      expenditures: processedExpenditures,
       createdAt: new Date(),
       updatedAt: new Date(),
     }
 
     const result = await billsCollection.insertOne(newBill)
 
-    return NextResponse.json({ message: "Bill created successfully", billId: result.insertedId }, { status: 201 })
+    try {
+      await WhatsAppService.sendAdminBillNotification(totalAmount, clientName.trim())
+    } catch (whatsappError) {
+      console.error("WhatsApp notification failed:", whatsappError)
+      // Continue with success response even if WhatsApp fails
+    }
+
+    return NextResponse.json(
+      { message: "Daily sheet entry created successfully", billId: result.insertedId },
+      { status: 201 },
+    )
   } catch (error) {
     console.error("Create bill error:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })

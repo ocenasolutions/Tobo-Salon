@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
-import { Calendar, TrendingUp, TrendingDown, Package, DollarSign, Loader2 } from "lucide-react"
+import { Calendar, TrendingUp, TrendingDown, Package, DollarSign, Loader2, ShoppingCart, Receipt } from "lucide-react"
 import DashboardLayout from "@/components/dashboard-layout"
 import { useToast } from "@/hooks/use-toast"
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from "recharts"
@@ -18,11 +18,31 @@ interface ExpenseReport {
     paidAmount: number
     unpaidAmount: number
     items: any[]
+    productSales: {
+      totalProductsSold: number
+      totalProductSalesAmount: number
+      items: any[]
+    }
+    expenditures: {
+      totalExpenditures: number
+      totalExpenditureItems: number
+      items: any[]
+    }
   }
   dailyBreakdown: Array<{
     _id: string
     dailyTotal: number
     dailyItems: number
+  }>
+  dailySalesBreakdown: Array<{
+    _id: string
+    dailySalesTotal: number
+    dailySalesItems: number
+  }>
+  dailyExpendituresBreakdown: Array<{
+    _id: string
+    dailyExpendituresTotal: number
+    dailyExpendituresItems: number
   }>
   period: string
 }
@@ -95,13 +115,64 @@ export default function ExpensesPage() {
   }
 
   const formatChartData = () => {
-    if (!report?.dailyBreakdown) return []
+    if (!report?.dailyBreakdown && !report?.dailySalesBreakdown && !report?.dailyExpendituresBreakdown) return []
 
-    return report.dailyBreakdown.map((day) => ({
-      date: new Date(day._id).toLocaleDateString("en-US", { month: "short", day: "numeric" }),
-      amount: day.dailyTotal,
-      items: day.dailyItems,
-    }))
+    const purchaseData = report.dailyBreakdown || []
+    const salesData = report.dailySalesBreakdown || []
+    const expendituresData = report.dailyExpendituresBreakdown || []
+
+    const combinedData: { [key: string]: any } = {}
+
+    purchaseData.forEach((day) => {
+      const date = new Date(day._id).toLocaleDateString("en-US", { month: "short", day: "numeric" })
+      combinedData[day._id] = {
+        date,
+        purchases: day.dailyTotal,
+        purchaseItems: day.dailyItems,
+        sales: 0,
+        salesItems: 0,
+        expenditures: 0,
+        expenditureItems: 0,
+      }
+    })
+
+    salesData.forEach((day) => {
+      const date = new Date(day._id).toLocaleDateString("en-US", { month: "short", day: "numeric" })
+      if (combinedData[day._id]) {
+        combinedData[day._id].sales = day.dailySalesTotal
+        combinedData[day._id].salesItems = day.dailySalesItems
+      } else {
+        combinedData[day._id] = {
+          date,
+          purchases: 0,
+          purchaseItems: 0,
+          sales: day.dailySalesTotal,
+          salesItems: day.dailySalesItems,
+          expenditures: 0,
+          expenditureItems: 0,
+        }
+      }
+    })
+
+    expendituresData.forEach((day) => {
+      const date = new Date(day._id).toLocaleDateString("en-US", { month: "short", day: "numeric" })
+      if (combinedData[day._id]) {
+        combinedData[day._id].expenditures = day.dailyExpendituresTotal
+        combinedData[day._id].expenditureItems = day.dailyExpendituresItems
+      } else {
+        combinedData[day._id] = {
+          date,
+          purchases: 0,
+          purchaseItems: 0,
+          sales: 0,
+          salesItems: 0,
+          expenditures: day.dailyExpendituresTotal,
+          expenditureItems: day.dailyExpendituresItems,
+        }
+      }
+    })
+
+    return Object.values(combinedData).sort((a: any, b: any) => a.date.localeCompare(b.date))
   }
 
   if (isLoading) {
@@ -122,7 +193,7 @@ export default function ExpensesPage() {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <h1 className="text-3xl font-bold">Expense Report</h1>
-            <p className="text-muted-foreground">Track your inventory purchases and expenses</p>
+            <p className="text-muted-foreground">Track your inventory purchases, product sales, and expenditures</p>
           </div>
           <div className="flex flex-col sm:flex-row gap-2">
             <Select value={selectedPeriod} onValueChange={handlePeriodChange}>
@@ -184,12 +255,12 @@ export default function ExpensesPage() {
         {/* Summary Stats */}
         {report && (
           <>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
               <Card>
                 <CardHeader className="pb-2">
                   <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
                     <Package className="h-4 w-4" />
-                    Total Items
+                    Items Purchased
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
@@ -202,11 +273,11 @@ export default function ExpensesPage() {
                 <CardHeader className="pb-2">
                   <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
                     <DollarSign className="h-4 w-4" />
-                    Total Amount
+                    Purchase Amount
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">₹{report.summary.totalAmount.toFixed(2)}</div>
+                  <div className="text-2xl font-bold text-red-600">₹{report.summary.totalAmount.toFixed(2)}</div>
                   <p className="text-xs text-muted-foreground">Total expenses for period</p>
                 </CardContent>
               </Card>
@@ -214,16 +285,46 @@ export default function ExpensesPage() {
               <Card>
                 <CardHeader className="pb-2">
                   <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                    <TrendingUp className="h-4 w-4" />
-                    Paid Amount
+                    <ShoppingCart className="h-4 w-4" />
+                    Products Sold
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold text-green-600">₹{report.summary.paidAmount.toFixed(2)}</div>
+                  <div className="text-2xl font-bold text-green-600">
+                    {report.summary.productSales.totalProductsSold}
+                  </div>
+                  <p className="text-xs text-muted-foreground">Items sold to customers</p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                    <TrendingUp className="h-4 w-4" />
+                    Sales Revenue
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-green-600">
+                    ₹{report.summary.productSales.totalProductSalesAmount.toFixed(2)}
+                  </div>
+                  <p className="text-xs text-muted-foreground">Revenue from product sales</p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                    <Receipt className="h-4 w-4" />
+                    Expenditures
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-orange-600">
+                    ₹{report.summary.expenditures?.totalExpenditures?.toFixed(2) || "0.00"}
+                  </div>
                   <p className="text-xs text-muted-foreground">
-                    {report.summary.totalAmount > 0
-                      ? `${((report.summary.paidAmount / report.summary.totalAmount) * 100).toFixed(1)}% of total`
-                      : "0% of total"}
+                    {report.summary.expenditures?.totalExpenditureItems || 0} expense items
                   </p>
                 </CardContent>
               </Card>
@@ -232,27 +333,41 @@ export default function ExpensesPage() {
                 <CardHeader className="pb-2">
                   <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
                     <TrendingDown className="h-4 w-4" />
-                    Unpaid Amount
+                    Net Position
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold text-red-600">₹{report.summary.unpaidAmount.toFixed(2)}</div>
-                  <p className="text-xs text-muted-foreground">
-                    {report.summary.totalAmount > 0
-                      ? `${((report.summary.unpaidAmount / report.summary.totalAmount) * 100).toFixed(1)}% of total`
-                      : "0% of total"}
-                  </p>
+                  <div
+                    className={`text-2xl font-bold ${
+                      (
+                        report.summary.productSales.totalProductSalesAmount -
+                          report.summary.totalAmount -
+                          (report.summary.expenditures?.totalExpenditures || 0)
+                      ) >= 0
+                        ? "text-green-600"
+                        : "text-red-600"
+                    }`}
+                  >
+                    ₹
+                    {(
+                      report.summary.productSales.totalProductSalesAmount -
+                      report.summary.totalAmount -
+                      (report.summary.expenditures?.totalExpenditures || 0)
+                    ).toFixed(2)}
+                  </div>
+                  <p className="text-xs text-muted-foreground">Sales - Purchases - Expenditures</p>
                 </CardContent>
               </Card>
             </div>
 
-            {/* Charts */}
-            {report.dailyBreakdown.length > 0 && (
+            {(report.dailyBreakdown.length > 0 ||
+              report.dailySalesBreakdown.length > 0 ||
+              report.dailyExpendituresBreakdown?.length > 0) && (
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <Card>
                   <CardHeader>
-                    <CardTitle>Daily Spending Trend</CardTitle>
-                    <CardDescription>Amount spent per day</CardDescription>
+                    <CardTitle>Daily Financial Activity</CardTitle>
+                    <CardDescription>Purchases vs Sales vs Expenditures comparison</CardDescription>
                   </CardHeader>
                   <CardContent>
                     <ResponsiveContainer width="100%" height={300}>
@@ -260,13 +375,35 @@ export default function ExpensesPage() {
                         <CartesianGrid strokeDasharray="3 3" />
                         <XAxis dataKey="date" />
                         <YAxis />
-                        <Tooltip formatter={(value) => [`₹${Number(value).toFixed(2)}`, "Amount"]} />
+                        <Tooltip
+                          formatter={(value, name) => [
+                            `₹${Number(value).toFixed(2)}`,
+                            name === "purchases" ? "Purchases" : name === "sales" ? "Sales" : "Expenditures",
+                          ]}
+                        />
                         <Line
                           type="monotone"
-                          dataKey="amount"
-                          stroke="#3b82f6"
+                          dataKey="purchases"
+                          stroke="#ef4444"
                           strokeWidth={2}
-                          dot={{ fill: "#3b82f6" }}
+                          dot={{ fill: "#ef4444" }}
+                          name="purchases"
+                        />
+                        <Line
+                          type="monotone"
+                          dataKey="sales"
+                          stroke="#10b981"
+                          strokeWidth={2}
+                          dot={{ fill: "#10b981" }}
+                          name="sales"
+                        />
+                        <Line
+                          type="monotone"
+                          dataKey="expenditures"
+                          stroke="#f97316"
+                          strokeWidth={2}
+                          dot={{ fill: "#f97316" }}
+                          name="expenditures"
                         />
                       </LineChart>
                     </ResponsiveContainer>
@@ -275,8 +412,8 @@ export default function ExpensesPage() {
 
                 <Card>
                   <CardHeader>
-                    <CardTitle>Daily Items Purchased</CardTitle>
-                    <CardDescription>Number of items bought per day</CardDescription>
+                    <CardTitle>Daily Item Activity</CardTitle>
+                    <CardDescription>Items purchased vs sold vs expenditure items per day</CardDescription>
                   </CardHeader>
                   <CardContent>
                     <ResponsiveContainer width="100%" height={300}>
@@ -284,8 +421,19 @@ export default function ExpensesPage() {
                         <CartesianGrid strokeDasharray="3 3" />
                         <XAxis dataKey="date" />
                         <YAxis />
-                        <Tooltip formatter={(value) => [value, "Items"]} />
-                        <Bar dataKey="items" fill="#10b981" />
+                        <Tooltip
+                          formatter={(value, name) => [
+                            value,
+                            name === "purchaseItems"
+                              ? "Items Purchased"
+                              : name === "salesItems"
+                                ? "Items Sold"
+                                : "Expenditure Items",
+                          ]}
+                        />
+                        <Bar dataKey="purchaseItems" fill="#ef4444" name="purchaseItems" />
+                        <Bar dataKey="salesItems" fill="#10b981" name="salesItems" />
+                        <Bar dataKey="expenditureItems" fill="#f97316" name="expenditureItems" />
                       </BarChart>
                     </ResponsiveContainer>
                   </CardContent>
@@ -293,12 +441,95 @@ export default function ExpensesPage() {
               </div>
             )}
 
-            {/* Recent Items */}
+            {report.summary.expenditures?.items?.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Recent Expenditures</CardTitle>
+                  <CardDescription>Manual expenses added to bills in this period</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    {report.summary.expenditures.items.slice(0, 10).map((exp: any, index: number) => (
+                      <div
+                        key={index}
+                        className="flex items-center justify-between p-4 border rounded-lg bg-orange-50/50"
+                      >
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2">
+                            <h4 className="font-medium">{exp.name}</h4>
+                            <Badge variant="outline" className="bg-orange-100 text-orange-700 border-orange-300">
+                              EXPENSE
+                            </Badge>
+                          </div>
+                          {exp.description && <div className="text-sm text-muted-foreground">{exp.description}</div>}
+                          <div className="text-xs text-muted-foreground">
+                            Added to bill for: {exp.clientName} on {new Date(exp.addedAt).toLocaleDateString()}
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <div className="font-semibold text-orange-600">-₹{exp.price.toFixed(2)}</div>
+                        </div>
+                      </div>
+                    ))}
+                    {report.summary.expenditures.items.length > 10 && (
+                      <p className="text-center text-muted-foreground">
+                        And {report.summary.expenditures.items.length - 10} more expenditures...
+                      </p>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {report.summary.productSales.items.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Recent Product Sales</CardTitle>
+                  <CardDescription>Products sold to customers in this period</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    {report.summary.productSales.items.slice(0, 10).map((sale: any, index: number) => (
+                      <div
+                        key={index}
+                        className="flex items-center justify-between p-4 border rounded-lg bg-green-50/50"
+                      >
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2">
+                            <h4 className="font-medium">{sale.productName}</h4>
+                            <Badge variant="outline" className="bg-green-100 text-green-700 border-green-300">
+                              {sale.brandName}
+                            </Badge>
+                            <Badge variant="secondary">SOLD</Badge>
+                          </div>
+                          <div className="text-sm text-muted-foreground">
+                            Qty: {sale.quantitySold} × ₹{sale.pricePerUnit.toFixed(2)} = ₹{sale.totalPrice.toFixed(2)}
+                          </div>
+                          <div className="text-xs text-muted-foreground">
+                            Sold to: {sale.clientName} on {new Date(sale.soldAt).toLocaleDateString()}
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <div className="font-semibold text-green-600">+₹{sale.totalPrice.toFixed(2)}</div>
+                        </div>
+                      </div>
+                    ))}
+                    {report.summary.productSales.items.length > 10 && (
+                      <p className="text-center text-muted-foreground">
+                        And {report.summary.productSales.items.length - 10} more sales...
+                      </p>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Recent Purchases */}
             {report.summary.items.length > 0 && (
               <Card>
                 <CardHeader>
                   <CardTitle>Recent Purchases</CardTitle>
-                  <CardDescription>Items purchased in this period</CardDescription>
+                  <CardDescription>Items purchased for inventory in this period</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
@@ -319,7 +550,7 @@ export default function ExpensesPage() {
                           </div>
                         </div>
                         <div className="text-right">
-                          <div className="font-semibold">₹{item.total.toFixed(2)}</div>
+                          <div className="font-semibold text-red-600">-₹{item.total.toFixed(2)}</div>
                         </div>
                       </div>
                     ))}
@@ -334,15 +565,19 @@ export default function ExpensesPage() {
             )}
 
             {/* No Data State */}
-            {report.summary.totalItems === 0 && (
-              <Card>
-                <CardContent className="py-8 text-center">
-                  <Package className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                  <h3 className="text-lg font-semibold mb-2">No purchases found</h3>
-                  <p className="text-muted-foreground">No inventory items were purchased during the selected period.</p>
-                </CardContent>
-              </Card>
-            )}
+            {report.summary.totalItems === 0 &&
+              report.summary.productSales.totalProductsSold === 0 &&
+              (report.summary.expenditures?.totalExpenditureItems || 0) === 0 && (
+                <Card>
+                  <CardContent className="py-8 text-center">
+                    <Package className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                    <h3 className="text-lg font-semibold mb-2">No activity found</h3>
+                    <p className="text-muted-foreground">
+                      No inventory items were purchased, sold, or expenditures added during the selected period.
+                    </p>
+                  </CardContent>
+                </Card>
+              )}
           </>
         )}
       </div>

@@ -50,15 +50,19 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json()
 
-    const { name, expiryDate, quantity, pricePerUnit, paymentStatus = "Unpaid" } = body
+    const { name, brandName, category, quantity, shadesCode, stockIn, pricePerUnit, expiryDate, paymentStatus = "Unpaid" } = body
 
-    // Validation
-    if (!name || !quantity || !pricePerUnit) {
-      return NextResponse.json({ error: "Name, quantity, and price per unit are required" }, { status: 400 })
+    // Validation - all fields mandatory except shadesCode
+    if (!name || !brandName || !category || !quantity || !stockIn || !pricePerUnit) {
+      return NextResponse.json({ 
+        error: "Item Name, Brand Name, Category, Quantity, Stock In, and Unit Price are required" 
+      }, { status: 400 })
     }
 
-    if (quantity <= 0 || pricePerUnit <= 0) {
-      return NextResponse.json({ error: "Quantity and price must be positive numbers" }, { status: 400 })
+    if (quantity <= 0 || stockIn <= 0 || pricePerUnit <= 0) {
+      return NextResponse.json({ 
+        error: "Quantity, Stock In, and Unit Price must be positive numbers" 
+      }, { status: 400 })
     }
 
     const total = quantity * pricePerUnit
@@ -66,9 +70,13 @@ export async function POST(request: NextRequest) {
 
     const inventoryItem = {
       name,
-      expiryDate: expiryDate ? new Date(expiryDate) : null,
+      brandName,
+      category,
       quantity: Number(quantity),
+      shadesCode: shadesCode || undefined, // Optional field
+      stockIn: Number(stockIn),
       pricePerUnit: Number(pricePerUnit),
+      expiryDate: expiryDate ? new Date(expiryDate) : null,
       total,
       paymentStatus,
       dateEntered: now,

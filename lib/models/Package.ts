@@ -1,11 +1,14 @@
 import type { ObjectId } from "mongodb"
 
-export interface Package {
+export interface InventoryItem {
   _id?: ObjectId
-  name: string
-  description: string
-  price: number
-  type: "Basic" | "Premium"
+  itemName: string
+  brandName: string
+  category: string
+  quantity: number
+  shadesCode?: string // 
+  stockIn: number
+  unitPrice: number
   userId: ObjectId
   createdAt: Date
   updatedAt: Date

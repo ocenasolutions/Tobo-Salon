@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { DollarSign, TrendingUp, Package, Receipt, Edit, Trash2 } from "lucide-react"
+import { DollarSign, TrendingUp, Package, Receipt, Calendar, User, MessageCircle } from "lucide-react"
 import type { Bill } from "@/lib/models/Bill"
 import Link from "next/link"
 import EditBillDialog from "@/components/bills/edit-bill-dialog"
@@ -23,6 +23,9 @@ interface DashboardAnalytics {
   todaysBillsCount: number
   totalMorningPackages: number
   mostUsedPackage: { name: string; count: number } | null
+  todaysExpenditures: number
+  thisWeeksExpenditures: number
+  thisMonthsExpenditures: number
 }
 
 export default function DashboardPage() {
@@ -92,6 +95,25 @@ export default function DashboardPage() {
     return timeDifferenceInMinutes <= 15
   }
 
+  const handleWhatsAppShare = (bill: Bill) => {
+    if (!bill.customerMobile) return
+
+    const message = `Hello ${bill.clientName}! 🌸
+
+Your bill from *HUSN Beauty Salon* has been processed.
+
+💰 *Total Amount: ₹${(bill.upiAmount + bill.cardAmount + bill.cashAmount + bill.productSale).toFixed(2)}*
+
+Thank you for visiting HUSN Beauty Salon! ✨
+We hope you loved your experience with us.
+
+Visit us again soon! 💕`
+
+    const encodedMessage = encodeURIComponent(message)
+    const whatsappUrl = `https://wa.me/${bill.customerMobile.replace(/[^0-9]/g, "")}?text=${encodedMessage}`
+    window.open(whatsappUrl, "_blank")
+  }
+
   if (loading) {
     return (
       <DashboardLayout>
@@ -110,8 +132,19 @@ export default function DashboardPage() {
       <div className="space-y-6">
         {analytics && (
           <>
+            <div className="text-center border-b pb-6">
+              <h1 className="text-4xl font-serif font-bold mb-2">Daily Sheet</h1>
+              <div className="flex justify-center items-center gap-8 text-lg">
+                <span className="font-semibold">Salon: HUSN Beauty</span>
+                <div className="flex items-center gap-2">
+                  <Calendar className="h-5 w-5" />
+                  <span>Date: {new Date().toLocaleDateString()}</span>
+                </div>
+              </div>
+            </div>
+
             {/* Key Metrics Cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4">
               <Card className="border-border/40 hover:shadow-lg transition-all duration-300">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <CardTitle className="text-sm font-medium">Morning Sales (12AM-12PM)</CardTitle>
@@ -178,95 +211,150 @@ export default function DashboardPage() {
                   </p>
                 </CardContent>
               </Card>
+
+              <Card className="border-border/40 hover:shadow-lg transition-all duration-300">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Today's Expenditures</CardTitle>
+                  <Receipt className="h-4 w-4 text-red-500" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-serif font-bold text-red-600">
+                    ₹{analytics.todaysExpenditures.toFixed(2)}
+                  </div>
+                  <p className="text-xs text-muted-foreground">Business expenses today</p>
+                </CardContent>
+              </Card>
             </div>
 
-            {/* Recent Bills - Editable */}
             <Card className="border-border/40">
               <CardHeader>
-                <CardTitle className="text-2xl font-serif">Morning Bills (12AM-12PM)</CardTitle>
-                <CardDescription>
-                  Bills from today's morning hours - editable within 15 minutes of creation
-                </CardDescription>
+                <CardTitle className="text-2xl font-serif">Today's Daily Sheet Entries</CardTitle>
+                <CardDescription>Complete record of today's salon activities with payment breakdown</CardDescription>
               </CardHeader>
               <CardContent>
                 {analytics.recentBills.length === 0 ? (
                   <div className="text-center py-8">
                     <Receipt className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                    <p className="text-muted-foreground">No morning bills created yet</p>
+                    <p className="text-muted-foreground">No entries created yet today</p>
                     <Link href="/bills">
-                      <Button className="mt-4">Create Your First Bill</Button>
+                      <Button className="mt-4">Create First Entry</Button>
                     </Link>
                   </div>
                 ) : (
                   <div className="space-y-4">
-                    {analytics.recentBills.map((bill) => {
+                    {/* Table Header */}
+                    <div className="grid grid-cols-10 gap-4 p-3 bg-muted/50 rounded-lg font-semibold text-sm">
+                      <div>Sr No.</div>
+                      <div>Client Name</div>
+                      <div>Services</div>
+                      <div>UPI</div>
+                      <div>Card</div>
+                      <div>Cash</div>
+                      <div>Attendant By</div>
+                      <div>Product Sale</div>
+                      <div>Expenditures</div>
+                      <div>Grand Total</div>
+                    </div>
+
+                    {/* Table Rows */}
+                    {analytics.recentBills.map((bill, index) => {
                       const isEditable = isBillEditable(bill)
+                      const srNo = analytics.recentBills.length - index
+                      const expenditureTotal = bill.expenditures?.reduce((sum, exp) => sum + exp.amount, 0) || 0
+                      const billGrandTotal = bill.upiAmount + bill.cardAmount + bill.cashAmount + bill.productSale
 
                       return (
                         <div
                           key={bill._id?.toString()}
-                          className="flex flex-col sm:flex-row sm:items-center justify-between p-4 border border-border/40 rounded-lg hover:bg-muted/50 transition-colors gap-4"
+                          className="grid grid-cols-10 gap-4 p-3 border border-border/40 rounded-lg hover:bg-muted/30 transition-colors text-sm"
                         >
-                          <div className="flex-1">
-                            <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-2">
-                              <h4 className="font-semibold">Bill #{bill._id?.toString().slice(-6).toUpperCase()}</h4>
-                              <span className="text-2xl font-serif font-bold text-primary">
-                                ₹{bill.totalAmount.toFixed(2)}
-                              </span>
-                              {!isEditable && (
-                                <Badge variant="outline" className="text-xs text-muted-foreground">
-                                  Edit window expired
-                                </Badge>
+                          <div className="font-medium">{srNo}</div>
+                          <div className="flex items-center gap-2">
+                            <User className="h-4 w-4 text-muted-foreground" />
+                            <div className="flex flex-col">
+                              <span className="font-medium">{bill.clientName}</span>
+                              {bill.customerMobile && (
+                                <div className="flex items-center gap-1 mt-1">
+                                  <span className="text-xs text-muted-foreground">{bill.customerMobile}</span>
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    className="h-6 w-6 p-0 text-green-600 hover:text-green-700 hover:bg-green-50"
+                                    onClick={() => handleWhatsAppShare(bill)}
+                                    title="Share bill on WhatsApp"
+                                  >
+                                    <MessageCircle className="h-3 w-3" />
+                                  </Button>
+                                </div>
                               )}
                             </div>
-                            <div className="flex flex-wrap items-center gap-2 mb-2">
-                              {bill.items.slice(0, 3).map((item, index) => (
-                                <Badge
-                                  key={index}
-                                  variant={item.packageType === "Premium" ? "default" : "secondary"}
-                                  className="text-xs"
-                                >
-                                  {item.packageName}
-                                </Badge>
-                              ))}
-                              {bill.items.length > 3 && (
-                                <Badge variant="outline" className="text-xs">
-                                  +{bill.items.length - 3} more
-                                </Badge>
-                              )}
-                            </div>
-                            <p className="text-sm text-muted-foreground">
-                              {new Date(bill.createdAt).toLocaleDateString()} at{" "}
-                              {new Date(bill.createdAt).toLocaleTimeString()}
-                            </p>
                           </div>
-                          <div className="flex gap-2 self-start sm:self-center">
-                            {isEditable ? (
-                              <>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => setEditingBill(bill)}
-                                  className="h-8 w-8 p-0"
-                                >
-                                  <Edit className="h-4 w-4" />
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => setDeletingBill(bill)}
-                                  className="h-8 w-8 p-0 text-destructive hover:text-destructive"
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
-                              </>
-                            ) : (
-                              <div className="text-xs text-muted-foreground px-2">Read-only</div>
+                          <div className="space-y-1">
+                            {bill.items.slice(0, 2).map((item, itemIndex) => (
+                              <Badge
+                                key={itemIndex}
+                                variant={item.packageType === "Premium" ? "default" : "secondary"}
+                                className="text-xs mr-1"
+                              >
+                                {item.packageName}
+                              </Badge>
+                            ))}
+                            {bill.items.length > 2 && (
+                              <Badge variant="outline" className="text-xs">
+                                +{bill.items.length - 2}
+                              </Badge>
                             )}
                           </div>
+                          <div className="text-green-600 font-medium">
+                            {bill.upiAmount > 0 ? `₹${bill.upiAmount.toFixed(2)}` : "-"}
+                          </div>
+                          <div className="text-blue-600 font-medium">
+                            {bill.cardAmount > 0 ? `₹${bill.cardAmount.toFixed(2)}` : "-"}
+                          </div>
+                          <div className="text-orange-600 font-medium">
+                            {bill.cashAmount > 0 ? `₹${bill.cashAmount.toFixed(2)}` : "-"}
+                          </div>
+                          <div className="font-medium">{bill.attendantBy}</div>
+                          <div className="text-purple-600 font-medium">
+                            {bill.productSale > 0 ? `₹${bill.productSale.toFixed(2)}` : "-"}
+                          </div>
+                          <div className="text-red-600 font-medium">
+                            {expenditureTotal > 0 ? `₹${expenditureTotal.toFixed(2)}` : "-"}
+                          </div>
+                          <div className="text-primary font-bold">₹{billGrandTotal.toFixed(2)}</div>
                         </div>
                       )
                     })}
+
+                    {/* Total Row */}
+                    <div className="grid grid-cols-10 gap-4 p-3 bg-primary/10 rounded-lg font-bold text-sm border-2 border-primary/20">
+                      <div>TOTAL</div>
+                      <div>{analytics.recentBills.length} Clients</div>
+                      <div>{analytics.totalMorningPackages} Services</div>
+                      <div className="text-green-600">
+                        ₹{analytics.recentBills.reduce((sum, bill) => sum + bill.upiAmount, 0).toFixed(2)}
+                      </div>
+                      <div className="text-blue-600">
+                        ₹{analytics.recentBills.reduce((sum, bill) => sum + bill.cardAmount, 0).toFixed(2)}
+                      </div>
+                      <div className="text-orange-600">
+                        ₹{analytics.recentBills.reduce((sum, bill) => sum + bill.cashAmount, 0).toFixed(2)}
+                      </div>
+                      <div>-</div>
+                      <div className="text-purple-600">
+                        ₹{analytics.recentBills.reduce((sum, bill) => sum + bill.productSale, 0).toFixed(2)}
+                      </div>
+                      <div className="text-red-600">₹{analytics.todaysExpenditures.toFixed(2)}</div>
+                      <div className="text-primary font-bold text-lg">
+                        ₹
+                        {analytics.recentBills
+                          .reduce(
+                            (sum, bill) => sum + bill.upiAmount + bill.cardAmount + bill.cashAmount + bill.productSale,
+                            0,
+                          )
+                          .toFixed(2)}
+                      </div>
+                    </div>
                   </div>
                 )}
               </CardContent>
@@ -302,7 +390,7 @@ export default function DashboardPage() {
           className="fixed bottom-6 left-1/2 transform -translate-x-1/2 z-50 shadow-lg hover:shadow-xl transition-all duration-300 px-8 py-3 text-lg font-semibold"
         >
           <Receipt className="h-5 w-5 mr-2" />
-          New Bill
+          Add Daily Entry
         </Button>
       </Link>
     </DashboardLayout>

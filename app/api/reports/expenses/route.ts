@@ -60,7 +60,7 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Get inventory items with aggregation
+    // Get inventory items with aggregation (purchases)
     const pipeline = [
       { $match: dateFilter },
       {
@@ -95,7 +95,95 @@ export async function GET(request: NextRequest) {
       items: [],
     }
 
-    // Get daily breakdown for charts
+    const billDateFilter: any = { userId: new ObjectId(decoded.userId) }
+
+    if (period === "yesterday") {
+      const yesterday = new Date(now)
+      yesterday.setDate(yesterday.getDate() - 1)
+      yesterday.setHours(0, 0, 0, 0)
+      const endOfYesterday = new Date(yesterday)
+      endOfYesterday.setHours(23, 59, 59, 999)
+
+      billDateFilter.createdAt = {
+        $gte: yesterday,
+        $lte: endOfYesterday,
+      }
+    } else if (period === "lastWeek") {
+      const weekAgo = new Date(now)
+      weekAgo.setDate(weekAgo.getDate() - 7)
+      billDateFilter.createdAt = { $gte: weekAgo }
+    } else if (period === "lastMonth") {
+      const monthAgo = new Date(now)
+      monthAgo.setMonth(monthAgo.getMonth() - 1)
+      billDateFilter.createdAt = { $gte: monthAgo }
+    } else if (period === "lastYear") {
+      const yearAgo = new Date(now)
+      yearAgo.setFullYear(yearAgo.getFullYear() - 1)
+      billDateFilter.createdAt = { $gte: yearAgo }
+    } else if (period === "custom" && startDate && endDate) {
+      billDateFilter.createdAt = {
+        $gte: new Date(startDate),
+        $lte: new Date(endDate),
+      }
+    }
+
+    // Get bills with product sales
+    const billsWithProductSales = await database
+      .collection("bills")
+      .find({
+        ...billDateFilter,
+        productSales: { $exists: true, $ne: [] },
+      })
+      .toArray()
+
+    // Calculate product sales summary
+    let totalProductsSold = 0
+    let totalProductSalesAmount = 0
+    const productSalesItems: any[] = []
+
+    billsWithProductSales.forEach((bill: any) => {
+      if (bill.productSales && Array.isArray(bill.productSales)) {
+        bill.productSales.forEach((sale: any) => {
+          totalProductsSold += sale.quantitySold
+          totalProductSalesAmount += sale.totalPrice
+          productSalesItems.push({
+            ...sale,
+            billId: bill._id,
+            clientName: bill.clientName,
+            soldAt: bill.createdAt,
+          })
+        })
+      }
+    })
+
+    const billsWithExpenditures = await database
+      .collection("bills")
+      .find({
+        ...billDateFilter,
+        expenditures: { $exists: true, $ne: [] },
+      })
+      .toArray()
+
+    let totalExpenditures = 0
+    let totalExpenditureItems = 0
+    const expenditureItems: any[] = []
+
+    billsWithExpenditures.forEach((bill: any) => {
+      if (bill.expenditures && Array.isArray(bill.expenditures)) {
+        bill.expenditures.forEach((exp: any) => {
+          totalExpenditures += exp.price
+          totalExpenditureItems += 1
+          expenditureItems.push({
+            ...exp,
+            billId: bill._id,
+            clientName: bill.clientName,
+            addedAt: bill.createdAt,
+          })
+        })
+      }
+    })
+
+    // Get daily breakdown for charts (purchases)
     const dailyPipeline = [
       { $match: dateFilter },
       {
@@ -112,9 +200,57 @@ export async function GET(request: NextRequest) {
 
     const dailyBreakdown = await database.collection("inventory").aggregate(dailyPipeline).toArray()
 
+    const dailySalesPipeline = [
+      { $match: billDateFilter },
+      { $unwind: "$productSales" },
+      {
+        $group: {
+          _id: {
+            $dateToString: { format: "%Y-%m-%d", date: "$createdAt" },
+          },
+          dailySalesTotal: { $sum: "$productSales.totalPrice" },
+          dailySalesItems: { $sum: "$productSales.quantitySold" },
+        },
+      },
+      { $sort: { _id: 1 } },
+    ]
+
+    const dailySalesBreakdown = await database.collection("bills").aggregate(dailySalesPipeline).toArray()
+
+    const dailyExpendituresPipeline = [
+      { $match: billDateFilter },
+      { $unwind: "$expenditures" },
+      {
+        $group: {
+          _id: {
+            $dateToString: { format: "%Y-%m-%d", date: "$createdAt" },
+          },
+          dailyExpendituresTotal: { $sum: "$expenditures.price" },
+          dailyExpendituresItems: { $sum: 1 },
+        },
+      },
+      { $sort: { _id: 1 } },
+    ]
+
+    const dailyExpendituresBreakdown = await database.collection("bills").aggregate(dailyExpendituresPipeline).toArray()
+
     return NextResponse.json({
-      summary,
+      summary: {
+        ...summary,
+        productSales: {
+          totalProductsSold,
+          totalProductSalesAmount,
+          items: productSalesItems,
+        },
+        expenditures: {
+          totalExpenditures,
+          totalExpenditureItems,
+          items: expenditureItems,
+        },
+      },
       dailyBreakdown,
+      dailySalesBreakdown,
+      dailyExpendituresBreakdown,
       period: period || "all",
     })
   } catch (error) {

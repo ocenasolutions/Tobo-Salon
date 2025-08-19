@@ -152,8 +152,29 @@ export async function GET(request: NextRequest) {
 
     const thisMonthsInventoryExpenses = thisMonthsInventory.reduce((sum: number, item: any) => sum + item.total, 0)
 
-    const thisWeeksProfit = thisWeeksTotalSales - thisWeeksInventoryExpenses
-    const thisMonthsProfit = thisMonthsTotalSales - thisMonthsInventoryExpenses
+    const todaysExpenditures = morningBills.reduce((sum, bill) => {
+      if (bill.expenditures && bill.expenditures.length > 0) {
+        return sum + bill.expenditures.reduce((expSum, exp) => expSum + exp.amount, 0)
+      }
+      return sum
+    }, 0)
+
+    const thisWeeksExpenditures = thisWeeksBills.reduce((sum, bill) => {
+      if (bill.expenditures && bill.expenditures.length > 0) {
+        return sum + bill.expenditures.reduce((expSum, exp) => expSum + exp.amount, 0)
+      }
+      return sum
+    }, 0)
+
+    const thisMonthsExpenditures = thisMonthsBills.reduce((sum, bill) => {
+      if (bill.expenditures && bill.expenditures.length > 0) {
+        return sum + bill.expenditures.reduce((expSum, exp) => expSum + exp.amount, 0)
+      }
+      return sum
+    }, 0)
+
+    const thisWeeksProfit = thisWeeksTotalSales - thisWeeksInventoryExpenses - thisWeeksExpenditures
+    const thisMonthsProfit = thisMonthsTotalSales - thisMonthsInventoryExpenses - thisMonthsExpenditures
 
     return NextResponse.json(
       {
@@ -173,6 +194,9 @@ export async function GET(request: NextRequest) {
         todaysBillsCount: morningBills.length,
         totalMorningPackages,
         mostUsedPackage: mostUsedPackage.count > 0 ? mostUsedPackage : null,
+        todaysExpenditures,
+        thisWeeksExpenditures,
+        thisMonthsExpenditures,
       },
       { status: 200 },
     )
