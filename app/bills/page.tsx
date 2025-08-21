@@ -12,6 +12,7 @@ import EditBillDialog from "@/components/bills/edit-bill-dialog"
 import DeleteBillDialog from "@/components/bills/delete-bill-dialog"
 import Link from "next/link"
 import DashboardLayout from "@/components/dashboard-layout"
+import { shareToWhatsApp } from "@/lib/utils/shareToWhatsApp"
 
 export default function BillsPage() {
   const [bills, setBills] = useState<Bill[]>([])
@@ -80,19 +81,26 @@ export default function BillsPage() {
   }
 
   const isEditable = (bill: Bill, index: number) => {
-    return index < 15 // Only last 15 bills are editable
+    const billCreationTime = new Date(bill.createdAt).getTime()
+    const currentTime = new Date().getTime()
+    const fifteenMinutesInMs = 15 * 60 * 1000 // 15 minutes in milliseconds
+
+    return currentTime - billCreationTime <= fifteenMinutesInMs
   }
 
-  const shareToWhatsApp = (bill: Bill) => {
-    if (!bill.customerMobile) {
-      alert("No customer mobile number available for this bill")
-      return
-    }
+  const getTimeRemaining = (bill: Bill) => {
+    const billCreationTime = new Date(bill.createdAt).getTime()
+    const currentTime = new Date().getTime()
+    const fifteenMinutesInMs = 15 * 60 * 1000
+    const timeElapsed = currentTime - billCreationTime
+    const timeRemaining = fifteenMinutesInMs - timeElapsed
 
-    const message = `Hello ${bill.clientName}! 🌸\n\nYour total bill was ₹${bill.totalAmount.toFixed(2)}\n\nThank you for visiting Husn Beauty Salon! ✨\n\nWe hope you loved your experience with us. Looking forward to seeing you again soon! 💄`
+    if (timeRemaining <= 0) return "Expired"
 
-    const whatsappUrl = `https://wa.me/${bill.customerMobile.replace(/[^0-9]/g, "")}?text=${encodeURIComponent(message)}`
-    window.open(whatsappUrl, "_blank")
+    const minutesRemaining = Math.floor(timeRemaining / (60 * 1000))
+    const secondsRemaining = Math.floor((timeRemaining % (60 * 1000)) / 1000)
+
+    return `${minutesRemaining}m ${secondsRemaining}s remaining`
   }
 
   if (loading) {
@@ -244,8 +252,13 @@ export default function BillsPage() {
                   {!isEditable(bill, index) && (
                     <div className="mt-4 p-3 bg-muted/50 rounded-lg">
                       <p className="text-sm text-muted-foreground">
-                        This bill is archived and cannot be edited. Only the last 15 bills can be modified.
+                        This bill can no longer be edited. Bills can only be modified within 15 minutes of creation.
                       </p>
+                    </div>
+                  )}
+                  {isEditable(bill, index) && (
+                    <div className="mt-4 p-3 bg-green-50 rounded-lg border border-green-200">
+                      <p className="text-sm text-green-700">Edit window: {getTimeRemaining(bill)}</p>
                     </div>
                   )}
                 </CardContent>

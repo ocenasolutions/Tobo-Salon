@@ -6,7 +6,7 @@ export interface InventoryItem {
   brandName: string
   category: string
   quantity: number
-  shadesCode?: string // 
+  shadesCode?: string
   stockIn: number
   unitPrice: number
   userId: ObjectId

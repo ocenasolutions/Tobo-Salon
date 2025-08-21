@@ -3,6 +3,7 @@ import { getDatabase } from "@/lib/mongodb"
 import type { User } from "@/lib/models/User"
 import { verifyToken, comparePassword, hashPassword, generateOTP } from "@/lib/auth"
 import { sendOTPEmail } from "@/lib/email"
+import { ObjectId } from "mongodb"
 
 export const runtime = "nodejs"
 
@@ -19,6 +20,7 @@ export async function POST(request: NextRequest) {
     }
 
     const decoded = verifyToken(token)
+    console.log("[v0] Decoded token:", decoded)
     if (!decoded) {
       return NextResponse.json({ error: "Invalid token" }, { status: 401 })
     }
@@ -26,7 +28,10 @@ export async function POST(request: NextRequest) {
     const db = await getDatabase()
     const usersCollection = db.collection<User>("users")
 
-    const user = await usersCollection.findOne({ _id: decoded.userId })
+    console.log("[v0] Looking for user with ID:", decoded.userId)
+    const user = await usersCollection.findOne({ _id: new ObjectId(decoded.userId) })
+    console.log("[v0] Found user:", user ? "Yes" : "No")
+
     if (!user) {
       return NextResponse.json({ error: "User not found" }, { status: 404 })
     }

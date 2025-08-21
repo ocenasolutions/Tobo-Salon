@@ -39,13 +39,13 @@ const navigation = [
     description: "Stock Management",
   },
   {
-    name: "Expenses",
+    name: "Daily Expenses",
     href: "/expenses",
     icon: TrendingUp,
     description: "Financial Reports",
   },
   {
-    name: "Reports",
+    name: "Sales Reports",
     href: "/reports",
     icon: BarChart3,
     description: "Business Insights",
@@ -92,7 +92,7 @@ export default function Sidebar() {
       >
         <div className="flex flex-col h-full">
           <div className="relative bg-gradient-to-r from-purple-600 via-pink-600 to-blue-600 p-6">
-            <div className="absolute inset-0 bg-black/10"></div>
+            <div className="absolute inset-0 bg-black/10" suppressHydrationWarning></div>
             <div className="relative flex items-center gap-4">
               <div className="relative">
                 <Image
@@ -102,7 +102,10 @@ export default function Sidebar() {
                   height={48}
                   className="rounded-full object-cover shadow-lg ring-4 ring-white/30"
                 />
-                <div className="absolute -top-1 -right-1 w-4 h-4 bg-green-400 rounded-full border-2 border-white shadow-sm"></div>
+                <div
+                  className="absolute -top-1 -right-1 w-4 h-4 bg-green-400 rounded-full border-2 border-white shadow-sm"
+                  suppressHydrationWarning
+                ></div>
               </div>
               <div>
                 <span className="text-2xl font-serif font-bold text-white drop-shadow-sm">HUSN</span>

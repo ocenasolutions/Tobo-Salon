@@ -46,6 +46,17 @@ export default function DashboardPage() {
 
       if (response.ok) {
         const data = await response.json()
+        console.log("[v0] Dashboard analytics data received:", data)
+        console.log("[v0] Recent bills from API:", data.recentBills?.length || 0)
+        console.log(
+          "[v0] Recent bills data:",
+          data.recentBills?.map((bill: any) => ({
+            id: bill._id,
+            clientName: bill.clientName,
+            totalAmount: bill.totalAmount,
+            createdAt: bill.createdAt,
+          })),
+        )
         setAnalytics(data)
       }
     } catch (error) {
@@ -133,7 +144,7 @@ Visit us again soon! 💕`
         {analytics && (
           <>
             <div className="text-center border-b pb-6">
-              <h1 className="text-4xl font-serif font-bold mb-2">Daily Sheet</h1>
+              <h1 className="text-4xl font-serif font-bold mb-2">Daily Bills</h1>
               <div className="flex justify-center items-center gap-8 text-lg">
                 <span className="font-semibold">Salon: HUSN Beauty</span>
                 <div className="flex items-center gap-2">
@@ -147,7 +158,7 @@ Visit us again soon! 💕`
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4">
               <Card className="border-border/40 hover:shadow-lg transition-all duration-300">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Morning Sales (12AM-12PM)</CardTitle>
+                  <CardTitle className="text-sm font-medium">Today's Sales</CardTitle>
                   <DollarSign className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
@@ -155,14 +166,14 @@ Visit us again soon! 💕`
                     ₹{analytics.todaysTotalSales.toFixed(2)}
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    {analytics.todaysBillsCount} bill{analytics.todaysBillsCount !== 1 ? "s" : ""} this morning
+                    {analytics.todaysBillsCount} bill{analytics.todaysBillsCount !== 1 ? "s" : ""} today
                   </p>
                 </CardContent>
               </Card>
 
               <Card className="border-border/40 hover:shadow-lg transition-all duration-300">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Highest Morning Bill</CardTitle>
+                  <CardTitle className="text-sm font-medium">Highest Bill Today</CardTitle>
                   <TrendingUp className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
@@ -170,7 +181,7 @@ Visit us again soon! 💕`
                     ₹{analytics.highestBillToday ? analytics.highestBillToday.totalAmount.toFixed(2) : "0.00"}
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    {analytics.highestBillToday ? "Peak morning transaction" : "No morning bills"}
+                    {analytics.highestBillToday ? "Peak transaction today" : "No bills today"}
                   </p>
                 </CardContent>
               </Card>
@@ -199,7 +210,7 @@ Visit us again soon! 💕`
 
               <Card className="border-border/40 hover:shadow-lg transition-all duration-300">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Morning Packages Done</CardTitle>
+                  <CardTitle className="text-sm font-medium">Today's Packages Done</CardTitle>
                   <Package className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
@@ -219,7 +230,7 @@ Visit us again soon! 💕`
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-serif font-bold text-red-600">
-                    ₹{analytics.todaysExpenditures.toFixed(2)}
+                    ₹{(analytics.todaysExpenditures || 0).toFixed(2)}
                   </div>
                   <p className="text-xs text-muted-foreground">Business expenses today</p>
                 </CardContent>
@@ -228,16 +239,16 @@ Visit us again soon! 💕`
 
             <Card className="border-border/40">
               <CardHeader>
-                <CardTitle className="text-2xl font-serif">Today's Daily Sheet Entries</CardTitle>
+                <CardTitle className="text-2xl font-serif">Today's Daily Bill Entries</CardTitle>
                 <CardDescription>Complete record of today's salon activities with payment breakdown</CardDescription>
               </CardHeader>
               <CardContent>
                 {analytics.recentBills.length === 0 ? (
                   <div className="text-center py-8">
                     <Receipt className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                    <p className="text-muted-foreground">No entries created yet today</p>
+                    <p className="text-muted-foreground">No bills created yet today</p>
                     <Link href="/bills">
-                      <Button className="mt-4">Create First Entry</Button>
+                      <Button className="mt-4">Create First Bill</Button>
                     </Link>
                   </div>
                 ) : (
@@ -261,7 +272,7 @@ Visit us again soon! 💕`
                       const isEditable = isBillEditable(bill)
                       const srNo = analytics.recentBills.length - index
                       const expenditureTotal = bill.expenditures?.reduce((sum, exp) => sum + exp.amount, 0) || 0
-                      const billGrandTotal = bill.upiAmount + bill.cardAmount + bill.cashAmount + bill.productSale
+                      const billGrandTotal = bill.totalAmount
 
                       return (
                         <div
@@ -344,15 +355,9 @@ Visit us again soon! 💕`
                       <div className="text-purple-600">
                         ₹{analytics.recentBills.reduce((sum, bill) => sum + bill.productSale, 0).toFixed(2)}
                       </div>
-                      <div className="text-red-600">₹{analytics.todaysExpenditures.toFixed(2)}</div>
+                      <div className="text-red-600">₹{(analytics.todaysExpenditures || 0).toFixed(2)}</div>
                       <div className="text-primary font-bold text-lg">
-                        ₹
-                        {analytics.recentBills
-                          .reduce(
-                            (sum, bill) => sum + bill.upiAmount + bill.cardAmount + bill.cashAmount + bill.productSale,
-                            0,
-                          )
-                          .toFixed(2)}
+                        ₹{analytics.recentBills.reduce((sum, bill) => sum + bill.totalAmount, 0).toFixed(2)}
                       </div>
                     </div>
                   </div>
@@ -390,7 +395,7 @@ Visit us again soon! 💕`
           className="fixed bottom-6 left-1/2 transform -translate-x-1/2 z-50 shadow-lg hover:shadow-xl transition-all duration-300 px-8 py-3 text-lg font-semibold"
         >
           <Receipt className="h-5 w-5 mr-2" />
-          Add Daily Entry
+          New Bill
         </Button>
       </Link>
     </DashboardLayout>

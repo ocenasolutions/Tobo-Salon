@@ -291,7 +291,7 @@ export default function ExpensesPage() {
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold text-green-600">
-                    {report.summary.productSales.totalProductsSold}
+                    {report.summary.productSales?.totalProductsSold || 0}
                   </div>
                   <p className="text-xs text-muted-foreground">Items sold to customers</p>
                 </CardContent>
@@ -306,7 +306,7 @@ export default function ExpensesPage() {
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold text-green-600">
-                    ₹{report.summary.productSales.totalProductSalesAmount.toFixed(2)}
+                    ₹{(report.summary.productSales?.totalProductSalesAmount || 0).toFixed(2)}
                   </div>
                   <p className="text-xs text-muted-foreground">Revenue from product sales</p>
                 </CardContent>
@@ -340,7 +340,7 @@ export default function ExpensesPage() {
                   <div
                     className={`text-2xl font-bold ${
                       (
-                        report.summary.productSales.totalProductSalesAmount -
+                        (report.summary.productSales?.totalProductSalesAmount || 0) -
                           report.summary.totalAmount -
                           (report.summary.expenditures?.totalExpenditures || 0)
                       ) >= 0
@@ -350,7 +350,7 @@ export default function ExpensesPage() {
                   >
                     ₹
                     {(
-                      report.summary.productSales.totalProductSalesAmount -
+                      (report.summary.productSales?.totalProductSalesAmount || 0) -
                       report.summary.totalAmount -
                       (report.summary.expenditures?.totalExpenditures || 0)
                     ).toFixed(2)}
@@ -467,7 +467,7 @@ export default function ExpensesPage() {
                           </div>
                         </div>
                         <div className="text-right">
-                          <div className="font-semibold text-orange-600">-₹{exp.price.toFixed(2)}</div>
+                          <div className="font-semibold text-orange-600">-₹{(exp.price || 0).toFixed(2)}</div>
                         </div>
                       </div>
                     ))}
@@ -481,7 +481,7 @@ export default function ExpensesPage() {
               </Card>
             )}
 
-            {report.summary.productSales.items.length > 0 && (
+            {report.summary.productSales?.items?.length > 0 && (
               <Card>
                 <CardHeader>
                   <CardTitle>Recent Product Sales</CardTitle>
@@ -489,7 +489,7 @@ export default function ExpensesPage() {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
-                    {report.summary.productSales.items.slice(0, 10).map((sale: any, index: number) => (
+                    {(report.summary.productSales?.items || []).slice(0, 10).map((sale: any, index: number) => (
                       <div
                         key={index}
                         className="flex items-center justify-between p-4 border rounded-lg bg-green-50/50"
@@ -514,9 +514,9 @@ export default function ExpensesPage() {
                         </div>
                       </div>
                     ))}
-                    {report.summary.productSales.items.length > 10 && (
+                    {(report.summary.productSales?.items?.length || 0) > 10 && (
                       <p className="text-center text-muted-foreground">
-                        And {report.summary.productSales.items.length - 10} more sales...
+                        And {(report.summary.productSales?.items?.length || 0) - 10} more sales...
                       </p>
                     )}
                   </div>
@@ -566,7 +566,7 @@ export default function ExpensesPage() {
 
             {/* No Data State */}
             {report.summary.totalItems === 0 &&
-              report.summary.productSales.totalProductsSold === 0 &&
+              (report.summary.productSales?.totalProductsSold || 0) === 0 &&
               (report.summary.expenditures?.totalExpenditureItems || 0) === 0 && (
                 <Card>
                   <CardContent className="py-8 text-center">

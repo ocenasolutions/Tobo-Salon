@@ -22,7 +22,18 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
 
     const userId = decoded.userId
 
-    const { packageIds } = await request.json()
+    const {
+      packageIds,
+      clientName,
+      customerMobile,
+      attendantBy,
+      productSales = [],
+      expenditures = [],
+      upiAmount,
+      cardAmount,
+      cashAmount,
+      paymentMethod,
+    } = await request.json()
 
     // Validation
     if (!packageIds || !Array.isArray(packageIds) || packageIds.length === 0) {
@@ -43,17 +54,14 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
       return NextResponse.json({ error: "Bill not found" }, { status: 404 })
     }
 
-    // Check if bill is within the last 15 bills (editable)
-    const recentBills = await billsCollection
-      .find({ userId: new ObjectId(userId) })
-      .sort({ createdAt: -1 })
-      .limit(15)
-      .toArray()
+    const billCreationTime = new Date(existingBill.createdAt).getTime()
+    const currentTime = new Date().getTime()
+    const fifteenMinutesInMs = 15 * 60 * 1000 // 15 minutes in milliseconds
 
-    const isEditable = recentBills.some((bill) => bill._id?.toString() === params.id)
-    if (!isEditable) {
+    const isWithinEditWindow = currentTime - billCreationTime <= fifteenMinutesInMs
+    if (!isWithinEditWindow) {
       return NextResponse.json(
-        { error: "This bill is too old to edit. Only the last 15 bills can be modified." },
+        { error: "This bill can no longer be edited. Bills can only be modified within 15 minutes of creation." },
         { status: 403 },
       )
     }
@@ -78,15 +86,43 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
       packageType: pkg.type,
     }))
 
-    // Calculate total
-    const totalAmount = billItems.reduce((sum, item) => sum + item.packagePrice, 0)
+    const servicesTotal = billItems.reduce((sum, item) => sum + item.packagePrice, 0)
+    const productSalesTotal = productSales.reduce(
+      (sum: number, product: any) => sum + product.price * product.quantity,
+      0,
+    )
+    const expendituresTotal = expenditures.reduce((sum: number, exp: any) => sum + exp.amount, 0)
+
+    let finalUpiAmount = 0
+    let finalCardAmount = 0
+    let finalCashAmount = 0
+
+    const totalAmount = servicesTotal + productSalesTotal + expendituresTotal
+
+    if (paymentMethod === "UPI") {
+      finalUpiAmount = totalAmount
+    } else if (paymentMethod === "CARD") {
+      finalCardAmount = totalAmount
+    } else if (paymentMethod === "CASH") {
+      finalCashAmount = totalAmount
+    }
 
     const result = await billsCollection.updateOne(
       { _id: new ObjectId(params.id) },
       {
         $set: {
           items: billItems,
-          totalAmount,
+          clientName: clientName || "Walk-in Customer",
+          customerMobile: customerMobile || "",
+          attendantBy: attendantBy || "",
+          productSales: productSales,
+          productSale: productSalesTotal,
+          expenditures: expenditures,
+          upiAmount: finalUpiAmount,
+          cardAmount: finalCardAmount,
+          cashAmount: finalCashAmount,
+          paymentMethod: paymentMethod || "CASH",
+          totalAmount: totalAmount,
           updatedAt: new Date(),
         },
       },
@@ -121,17 +157,23 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
     const db = await getDatabase()
     const billsCollection = db.collection<Bill>("bills")
 
-    // Check if bill is within the last 15 bills (deletable)
-    const recentBills = await billsCollection
-      .find({ userId: new ObjectId(userId) })
-      .sort({ createdAt: -1 })
-      .limit(15)
-      .toArray()
+    const existingBill = await billsCollection.findOne({
+      _id: new ObjectId(params.id),
+      userId: new ObjectId(userId),
+    })
 
-    const isDeletable = recentBills.some((bill) => bill._id?.toString() === params.id)
-    if (!isDeletable) {
+    if (!existingBill) {
+      return NextResponse.json({ error: "Bill not found" }, { status: 404 })
+    }
+
+    const billCreationTime = new Date(existingBill.createdAt).getTime()
+    const currentTime = new Date().getTime()
+    const fifteenMinutesInMs = 15 * 60 * 1000
+
+    const isWithinEditWindow = currentTime - billCreationTime <= fifteenMinutesInMs
+    if (!isWithinEditWindow) {
       return NextResponse.json(
-        { error: "This bill is too old to delete. Only the last 15 bills can be modified." },
+        { error: "This bill can no longer be deleted. Bills can only be deleted within 15 minutes of creation." },
         { status: 403 },
       )
     }

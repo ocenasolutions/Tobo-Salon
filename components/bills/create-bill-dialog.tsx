@@ -7,10 +7,11 @@ import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
 import { Checkbox } from "@/components/ui/checkbox"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
-import { Loader2, Search, X, Calendar, Plus, Minus, Receipt } from "lucide-react"
+import { Loader2, Search, X, Calendar, Plus, Minus, Receipt, CreditCard, Banknote, Smartphone } from "lucide-react"
 import type { PackageType } from "@/lib/models/Package"
 
 interface InventoryItem {
@@ -52,10 +53,13 @@ export default function CreateBillDialog({ open, onOpenChange, packages, onSucce
 
   const [clientName, setClientName] = useState("")
   const [customerMobile, setCustomerMobile] = useState("")
-  const [upiAmount, setUpiAmount] = useState("")
-  const [cardAmount, setCardAmount] = useState("")
-  const [cashAmount, setCashAmount] = useState("")
   const [attendantBy, setAttendantBy] = useState("")
+  const [attendantList, setAttendantList] = useState<string[]>([])
+  const [newAttendant, setNewAttendant] = useState("")
+  const [isAddingAttendant, setIsAddingAttendant] = useState(false)
+
+  // Payment method state
+  const [paymentMethod, setPaymentMethod] = useState<"UPI" | "CARD" | "CASH">("CASH")
 
   const [inventory, setInventory] = useState<InventoryItem[]>([])
   const [productSales, setProductSales] = useState<ProductSale[]>([])
@@ -70,8 +74,37 @@ export default function CreateBillDialog({ open, onOpenChange, packages, onSucce
   useEffect(() => {
     if (open) {
       fetchInventory()
+      loadAttendantList()
     }
   }, [open])
+
+  const loadAttendantList = () => {
+    const saved = localStorage.getItem("attendant-list")
+    if (saved) {
+      setAttendantList(JSON.parse(saved))
+    }
+  }
+
+  const saveAttendantList = (list: string[]) => {
+    localStorage.setItem("attendant-list", JSON.stringify(list))
+    setAttendantList(list)
+  }
+
+  const addNewAttendant = () => {
+    if (!newAttendant.trim()) return
+
+    const trimmed = newAttendant.trim()
+    if (!attendantList.includes(trimmed)) {
+      const newList = [...attendantList, trimmed]
+      saveAttendantList(newList)
+      setAttendantBy(trimmed)
+    } else {
+      setAttendantBy(trimmed)
+    }
+
+    setNewAttendant("")
+    setIsAddingAttendant(false)
+  }
 
   const fetchInventory = async () => {
     setLoadingInventory(true)
@@ -213,25 +246,8 @@ export default function CreateBillDialog({ open, onOpenChange, packages, onSucce
       return
     }
 
-    if (!clientName.trim()) {
-      setError("Please enter client name")
-      return
-    }
-
     if (!attendantBy.trim()) {
-      setError("Please enter attendant name")
-      return
-    }
-
-    const upi = Number.parseFloat(upiAmount) || 0
-    const card = Number.parseFloat(cardAmount) || 0
-    const cash = Number.parseFloat(cashAmount) || 0
-
-    const totalPayment = upi + card + cash
-    const expectedPayment = calculateServicesTotal()
-
-    if (Math.abs(totalPayment - expectedPayment) > 0.01) {
-      setError(`Payment total (₹${totalPayment.toFixed(2)}) must equal services total (₹${expectedPayment.toFixed(2)})`)
+      setError("Please select or add an attendant")
       return
     }
 
@@ -239,23 +255,39 @@ export default function CreateBillDialog({ open, onOpenChange, packages, onSucce
 
     try {
       const token = localStorage.getItem("auth-token")
+      const grandTotal = calculateGrandTotal()
+
+      const upiAmount = paymentMethod === "UPI" ? grandTotal : 0
+      const cardAmount = paymentMethod === "CARD" ? grandTotal : 0
+      const cashAmount = paymentMethod === "CASH" ? grandTotal : 0
+
+      const requestBody: any = {
+        packageIds: selectedPackages,
+        attendantBy: attendantBy.trim(),
+        upiAmount: upiAmount,
+        cardAmount: cardAmount,
+        cashAmount: cashAmount,
+        productSales: productSales,
+        expenditures: expenditures,
+      }
+
+      // Only include clientName if it has a value
+      if (clientName.trim()) {
+        requestBody.clientName = clientName.trim()
+      }
+
+      // Only include customerMobile if it has a value
+      if (customerMobile.trim()) {
+        requestBody.customerMobile = customerMobile.trim()
+      }
+
       const response = await fetch("/api/bills", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({
-          packageIds: selectedPackages,
-          clientName: clientName.trim(),
-          customerMobile: customerMobile.trim() || undefined,
-          upiAmount: upi,
-          cardAmount: card,
-          cashAmount: cash,
-          attendantBy: attendantBy.trim(),
-          productSales: productSales,
-          expenditures: expenditures,
-        }),
+        body: JSON.stringify(requestBody),
       })
 
       const data = await response.json()
@@ -264,14 +296,13 @@ export default function CreateBillDialog({ open, onOpenChange, packages, onSucce
         throw new Error(data.error || "Something went wrong")
       }
 
+      // Reset form
       setSelectedPackages([])
       setSearchQuery("")
       setClientName("")
       setCustomerMobile("")
-      setUpiAmount("")
-      setCardAmount("")
-      setCashAmount("")
       setAttendantBy("")
+      setPaymentMethod("CASH")
       setProductSales([])
       setProductSearchQuery("")
       setExpenditures([])
@@ -292,6 +323,19 @@ export default function CreateBillDialog({ open, onOpenChange, packages, onSucce
 
   const clearProductSearch = () => {
     setProductSearchQuery("")
+  }
+
+  const getPaymentIcon = (method: string) => {
+    switch (method) {
+      case "UPI":
+        return <Smartphone className="h-4 w-4" />
+      case "CARD":
+        return <CreditCard className="h-4 w-4" />
+      case "CASH":
+        return <Banknote className="h-4 w-4" />
+      default:
+        return null
+    }
   }
 
   return (
@@ -320,16 +364,15 @@ export default function CreateBillDialog({ open, onOpenChange, packages, onSucce
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 bg-muted/30 rounded-lg">
             <div className="space-y-2">
               <Label htmlFor="clientName" className="text-base font-semibold">
-                Client Name *
+                Client Name (Optional)
               </Label>
               <Input
                 id="clientName"
                 type="text"
-                placeholder="Enter client name"
+                placeholder="Enter client name (optional)"
                 value={clientName}
                 onChange={(e) => setClientName(e.target.value)}
                 disabled={loading}
-                required
               />
             </div>
             <div className="space-y-2">
@@ -350,15 +393,62 @@ export default function CreateBillDialog({ open, onOpenChange, packages, onSucce
               <Label htmlFor="attendantBy" className="text-base font-semibold">
                 Attendant By *
               </Label>
-              <Input
-                id="attendantBy"
-                type="text"
-                placeholder="Enter attendant name"
-                value={attendantBy}
-                onChange={(e) => setAttendantBy(e.target.value)}
-                disabled={loading}
-                required
-              />
+              {!isAddingAttendant ? (
+                <div className="flex gap-2">
+                  <Select value={attendantBy} onValueChange={setAttendantBy} disabled={loading}>
+                    <SelectTrigger className="flex-1">
+                      <SelectValue placeholder="Select attendant" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {attendantList.map((attendant) => (
+                        <SelectItem key={attendant} value={attendant}>
+                          {attendant}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setIsAddingAttendant(true)}
+                    disabled={loading}
+                  >
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                </div>
+              ) : (
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="Enter new attendant name"
+                    value={newAttendant}
+                    onChange={(e) => setNewAttendant(e.target.value)}
+                    disabled={loading}
+                    onKeyPress={(e) => e.key === "Enter" && addNewAttendant()}
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={addNewAttendant}
+                    disabled={loading || !newAttendant.trim()}
+                  >
+                    Add
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setIsAddingAttendant(false)
+                      setNewAttendant("")
+                    }}
+                    disabled={loading}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              )}
             </div>
           </div>
 
@@ -709,54 +799,36 @@ export default function CreateBillDialog({ open, onOpenChange, packages, onSucce
             )}
           </div>
 
+          {/* Payment Method and Total */}
           <div className="space-y-4 p-4 bg-primary/5 rounded-lg border border-primary/20">
-            <h3 className="text-lg font-semibold">Payment Details</h3>
+            <h3 className="text-lg font-semibold">Payment Method & Total</h3>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="upiAmount" className="text-sm font-medium">
-                  UPI Amount
-                </Label>
-                <Input
-                  id="upiAmount"
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  placeholder="0.00"
-                  value={upiAmount}
-                  onChange={(e) => setUpiAmount(e.target.value)}
-                  disabled={loading}
-                />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-3">
+                <Label className="text-sm font-medium">Payment Method *</Label>
+                <div className="grid grid-cols-3 gap-2">
+                  {(["UPI", "CARD", "CASH"] as const).map((method) => (
+                    <Button
+                      key={method}
+                      type="button"
+                      variant={paymentMethod === method ? "default" : "outline"}
+                      onClick={() => setPaymentMethod(method)}
+                      disabled={loading}
+                      className="flex items-center gap-2 justify-center"
+                    >
+                      {getPaymentIcon(method)}
+                      {method}
+                    </Button>
+                  ))}
+                </div>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="cardAmount" className="text-sm font-medium">
-                  Card Amount
-                </Label>
-                <Input
-                  id="cardAmount"
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  placeholder="0.00"
-                  value={cardAmount}
-                  onChange={(e) => setCardAmount(e.target.value)}
-                  disabled={loading}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="cashAmount" className="text-sm font-medium">
-                  Cash Amount
-                </Label>
-                <Input
-                  id="cashAmount"
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  placeholder="0.00"
-                  value={cashAmount}
-                  onChange={(e) => setCashAmount(e.target.value)}
-                  disabled={loading}
-                />
+
+              <div className="space-y-3">
+                <Label className="text-sm font-medium">Total Amount</Label>
+                <div className="p-4 bg-white rounded-lg border-2 border-primary/20">
+                  <div className="text-3xl font-bold text-primary text-center">₹{calculateGrandTotal().toFixed(2)}</div>
+                  <div className="text-sm text-muted-foreground text-center mt-1">Payment via {paymentMethod}</div>
+                </div>
               </div>
             </div>
 
@@ -777,17 +849,6 @@ export default function CreateBillDialog({ open, onOpenChange, packages, onSucce
                 <span>Grand Total:</span>
                 <span className="text-primary">₹{calculateGrandTotal().toFixed(2)}</span>
               </div>
-              <div className="flex justify-between text-sm text-muted-foreground">
-                <span>Payment Total:</span>
-                <span>
-                  ₹
-                  {(
-                    (Number.parseFloat(upiAmount) || 0) +
-                    (Number.parseFloat(cardAmount) || 0) +
-                    (Number.parseFloat(cashAmount) || 0)
-                  ).toFixed(2)}
-                </span>
-              </div>
             </div>
           </div>
 
@@ -803,7 +864,7 @@ export default function CreateBillDialog({ open, onOpenChange, packages, onSucce
             </Button>
             <Button
               type="submit"
-              disabled={loading || selectedPackages.length === 0 || !clientName.trim() || !attendantBy.trim()}
+              disabled={loading || selectedPackages.length === 0 || !attendantBy.trim()}
               className="flex-1"
             >
               {loading ? (

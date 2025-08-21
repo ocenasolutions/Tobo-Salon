@@ -76,10 +76,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "At least one service must be selected" }, { status: 400 })
     }
 
-    if (!clientName || !clientName.trim()) {
-      return NextResponse.json({ error: "Client name is required" }, { status: 400 })
-    }
-
     if (!attendantBy || !attendantBy.trim()) {
       return NextResponse.json({ error: "Attendant name is required" }, { status: 400 })
     }
@@ -169,11 +165,13 @@ export async function POST(request: NextRequest) {
     const servicesTotal = billItems.reduce((sum, item) => sum + item.packagePrice, 0)
     const totalAmount = servicesTotal + productSalesTotal + expendituresTotal
 
+    const processedClientName = clientName?.trim() || "Walk-in Customer"
+
     const newBill: Bill = {
       userId: new ObjectId(userId),
       items: billItems,
       totalAmount,
-      clientName: clientName.trim(),
+      clientName: processedClientName,
       customerMobile: customerMobile?.trim() || undefined,
       upiAmount: upiAmount || 0,
       cardAmount: cardAmount || 0,
@@ -189,7 +187,7 @@ export async function POST(request: NextRequest) {
     const result = await billsCollection.insertOne(newBill)
 
     try {
-      await WhatsAppService.sendAdminBillNotification(totalAmount, clientName.trim())
+      await WhatsAppService.sendAdminBillNotification(totalAmount, processedClientName)
     } catch (whatsappError) {
       console.error("WhatsApp notification failed:", whatsappError)
       // Continue with success response even if WhatsApp fails

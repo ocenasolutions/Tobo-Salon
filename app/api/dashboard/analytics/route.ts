@@ -25,33 +25,49 @@ export async function GET(request: NextRequest) {
     // Get today's date range
     const today = new Date()
     const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate()) // 12:00 AM
-    const noonToday = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 12, 0, 0) // 12:00 PM
+    const endOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59, 999) // 11:59:59 PM
 
-    // Get morning bills only (12 AM to 12 PM)
-    const morningBills = await billsCollection
+    const todaysBills = await billsCollection
       .find({
         userId: new ObjectId(decoded.userId),
         createdAt: {
           $gte: startOfDay,
-          $lt: noonToday,
+          $lte: endOfDay,
         },
       })
       .toArray()
 
-    const todaysTotalSales = morningBills.reduce((sum, bill) => sum + bill.totalAmount, 0)
+    console.log("[v0] Today's date range:", { startOfDay, endOfDay })
+    console.log("[v0] Current time:", new Date())
+    console.log("[v0] Found bills for today:", todaysBills.length)
+    console.log("[v0] All bills detailed data:")
+    todaysBills.forEach((bill, index) => {
+      console.log(`[v0] Bill ${index + 1}:`, {
+        id: bill._id,
+        clientName: bill.clientName,
+        totalAmount: bill.totalAmount,
+        servicesTotal: bill.items.reduce((sum, item) => sum + item.packagePrice, 0),
+        productSalesTotal: bill.productSale || 0,
+        expendituresTotal: bill.expenditures?.reduce((sum, exp) => sum + exp.price, 0) || 0,
+        createdAt: bill.createdAt,
+        items: bill.items.map((item) => ({ name: item.packageName, price: item.packagePrice })),
+      })
+    })
 
-    const highestBillToday = morningBills.reduce(
+    const todaysTotalSales = todaysBills.reduce((sum, bill) => sum + bill.totalAmount, 0)
+
+    const highestBillToday = todaysBills.reduce(
       (highest, bill) => (bill.totalAmount > highest.totalAmount ? bill : highest),
       { totalAmount: 0, _id: null, items: [], createdAt: new Date(), userId: new ObjectId(), updatedAt: new Date() },
     )
 
-    const morningPackageStats = morningBills.reduce(
+    const todaysPackageStats = todaysBills.reduce(
       (stats, bill) => {
         bill.items.forEach((item) => {
           if (stats[item.packageName]) {
-            stats[item.packageName] += item.quantity
+            stats[item.packageName] += item.quantity || 1
           } else {
-            stats[item.packageName] = item.quantity
+            stats[item.packageName] = item.quantity || 1
           }
         })
         return stats
@@ -59,8 +75,8 @@ export async function GET(request: NextRequest) {
       {} as Record<string, number>,
     )
 
-    const totalMorningPackages = Object.values(morningPackageStats).reduce((sum, count) => sum + count, 0)
-    const mostUsedPackage = Object.entries(morningPackageStats).reduce(
+    const totalTodaysPackages = Object.values(todaysPackageStats).reduce((sum, count) => sum + count, 0)
+    const mostUsedPackage = Object.entries(todaysPackageStats).reduce(
       (most, [packageName, count]) => (count > most.count ? { name: packageName, count } : most),
       { name: "", count: 0 },
     )
@@ -102,12 +118,24 @@ export async function GET(request: NextRequest) {
         userId: new ObjectId(decoded.userId),
         createdAt: {
           $gte: startOfDay,
-          $lt: noonToday,
+          $lte: endOfDay,
         },
       })
       .sort({ createdAt: -1 })
       .limit(15)
       .toArray()
+
+    console.log("[v0] Recent bills count:", recentBills.length)
+    console.log("[v0] Recent bills for dashboard display:")
+    recentBills.forEach((bill, index) => {
+      console.log(`[v0] Recent Bill ${index + 1}:`, {
+        id: bill._id,
+        clientName: bill.clientName,
+        totalAmount: bill.totalAmount,
+        createdAt: bill.createdAt,
+        items: bill.items,
+      })
+    })
 
     // Get this week's sales
     const startOfWeek = new Date(today)
@@ -152,7 +180,7 @@ export async function GET(request: NextRequest) {
 
     const thisMonthsInventoryExpenses = thisMonthsInventory.reduce((sum: number, item: any) => sum + item.total, 0)
 
-    const todaysExpenditures = morningBills.reduce((sum, bill) => {
+    const todaysExpenditures = todaysBills.reduce((sum, bill) => {
       if (bill.expenditures && bill.expenditures.length > 0) {
         return sum + bill.expenditures.reduce((expSum, exp) => expSum + exp.amount, 0)
       }
@@ -191,8 +219,8 @@ export async function GET(request: NextRequest) {
         thisMonthsInventoryExpenses,
         thisWeeksProfit,
         thisMonthsProfit,
-        todaysBillsCount: morningBills.length,
-        totalMorningPackages,
+        todaysBillsCount: todaysBills.length,
+        totalMorningPackages: totalTodaysPackages,
         mostUsedPackage: mostUsedPackage.count > 0 ? mostUsedPackage : null,
         todaysExpenditures,
         thisWeeksExpenditures,
