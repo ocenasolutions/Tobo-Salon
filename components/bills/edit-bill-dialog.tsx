@@ -67,7 +67,6 @@ export default function EditBillDialog({ open, onOpenChange, bill, packages, onS
   const [inventoryProductSales, setInventoryProductSales] = useState<InventoryProductSale[]>([])
   const [productSearchQuery, setProductSearchQuery] = useState("")
   const [loadingInventory, setLoadingInventory] = useState(false)
-
   useEffect(() => {
     if (open) {
       fetchInventory()
@@ -83,7 +82,6 @@ export default function EditBillDialog({ open, onOpenChange, bill, packages, onS
           Authorization: `Bearer ${token}`,
         },
       })
-
       if (response.ok) {
         const data = await response.json()
         const inStockItems = data.inventory.filter((item: InventoryItem) => item.quantity > 0)
@@ -95,10 +93,8 @@ export default function EditBillDialog({ open, onOpenChange, bill, packages, onS
       setLoadingInventory(false)
     }
   }
-
   const filteredInventory = useMemo(() => {
     if (!productSearchQuery.trim()) return inventory
-
     const query = productSearchQuery.toLowerCase().trim()
     return inventory.filter(
       (item) =>
@@ -107,7 +103,6 @@ export default function EditBillDialog({ open, onOpenChange, bill, packages, onS
         item.category.toLowerCase().includes(query),
     )
   }, [inventory, productSearchQuery])
-
   useEffect(() => {
     if (bill) {
       console.log("[v0] Loading bill data:", bill)
@@ -115,7 +110,6 @@ export default function EditBillDialog({ open, onOpenChange, bill, packages, onS
       setClientName(bill.clientName || "")
       setCustomerMobile(bill.customerMobile || "")
       setAttendantBy(bill.attendantBy || "")
-
       const loadedProductSales = (bill.productSales || []).map((product) => ({
         name: product.name || "",
         price: Number(product.price) || 0,
@@ -123,7 +117,6 @@ export default function EditBillDialog({ open, onOpenChange, bill, packages, onS
       }))
       console.log("[v0] Loaded product sales:", loadedProductSales)
       setProductSales(loadedProductSales)
-
       const loadedExpenditures = (bill.expenditures || []).map((expense) => ({
         name: expense.name || "",
         amount: Number(expense.amount) || 0,
@@ -131,7 +124,6 @@ export default function EditBillDialog({ open, onOpenChange, bill, packages, onS
       }))
       console.log("[v0] Loaded expenditures:", loadedExpenditures)
       setExpenditures(loadedExpenditures)
-
       if (bill.upiAmount > 0) setPaymentMethod("UPI")
       else if (bill.cardAmount > 0) setPaymentMethod("CARD")
       else setPaymentMethod("CASH")
@@ -143,21 +135,17 @@ export default function EditBillDialog({ open, onOpenChange, bill, packages, onS
       prev.includes(packageId) ? prev.filter((id) => id !== packageId) : [...prev, packageId],
     )
   }
-
   const addProductSale = () => {
     setProductSales([...productSales, { name: "", price: 0, quantity: 1 }])
   }
-
   const updateProductSale = (index: number, field: keyof ProductSale, value: string | number) => {
     const updated = [...productSales]
     updated[index] = { ...updated[index], [field]: value }
     setProductSales(updated)
   }
-
   const removeProductSale = (index: number) => {
     setProductSales(productSales.filter((_, i) => i !== index))
   }
-
   const addInventoryProductSale = (item: InventoryItem) => {
     const existingSale = inventoryProductSales.find((sale) => sale.inventoryId === item._id)
     if (existingSale) {
@@ -174,16 +162,13 @@ export default function EditBillDialog({ open, onOpenChange, bill, packages, onS
       setInventoryProductSales((prev) => [...prev, newSale])
     }
   }
-
   const updateInventoryProductQuantity = (inventoryId: string, newQuantity: number) => {
     if (newQuantity <= 0) {
       setInventoryProductSales((prev) => prev.filter((sale) => sale.inventoryId !== inventoryId))
       return
     }
-
     const item = inventory.find((item) => item._id === inventoryId)
     if (!item || newQuantity > item.quantity) return
-
     setInventoryProductSales((prev) =>
       prev.map((sale) =>
         sale.inventoryId === inventoryId
@@ -192,43 +177,34 @@ export default function EditBillDialog({ open, onOpenChange, bill, packages, onS
       ),
     )
   }
-
   const removeInventoryProductSale = (inventoryId: string) => {
     setInventoryProductSales((prev) => prev.filter((sale) => sale.inventoryId !== inventoryId))
   }
-
   const addExpenditure = () => {
     setExpenditures([...expenditures, { name: "", amount: 0, description: "" }])
   }
-
   const updateExpenditure = (index: number, field: keyof Expenditure, value: string | number) => {
     const updated = [...expenditures]
     updated[index] = { ...updated[index], [field]: value }
     setExpenditures(updated)
   }
-
   const removeExpenditure = (index: number) => {
     setExpenditures(expenditures.filter((_, i) => i !== index))
   }
-
   const calculateTotal = () => {
     const servicesTotal = packages
       .filter((pkg) => selectedPackages.includes(pkg._id!.toString()))
       .reduce((sum, pkg) => sum + pkg.price, 0)
-
     const productSalesTotal = productSales.reduce((sum, product) => {
       const price = Number(product.price) || 0
       const quantity = Number(product.quantity) || 0
       return sum + price * quantity
     }, 0)
-
     const inventoryProductSalesTotal = inventoryProductSales.reduce((sum, sale) => sum + sale.totalPrice, 0)
-
     const expendituresTotal = expenditures.reduce((sum, exp) => {
       const amount = Number(exp.amount) || 0
       return sum + amount
     }, 0)
-
     const total = servicesTotal + productSalesTotal + inventoryProductSalesTotal + expendituresTotal
     console.log("[v0] Calculating total:", {
       servicesTotal,
@@ -239,30 +215,23 @@ export default function EditBillDialog({ open, onOpenChange, bill, packages, onS
     })
     return total
   }
-
   const clearProductSearch = () => {
     setProductSearchQuery("")
   }
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError("")
-
     if (selectedPackages.length === 0) {
       setError("Please select at least one package")
       return
     }
-
     if (!attendantBy.trim()) {
       setError("Attendant name is required")
       return
     }
-
     setLoading(true)
-
     try {
       const token = localStorage.getItem("auth-token")
-
       const allProductSales = [
         ...productSales,
         ...inventoryProductSales.map((sale) => ({
@@ -271,7 +240,6 @@ export default function EditBillDialog({ open, onOpenChange, bill, packages, onS
           quantity: sale.quantitySold,
         })),
       ]
-
       const response = await fetch(`/api/bills/${bill._id}`, {
         method: "PUT",
         headers: {
@@ -288,13 +256,10 @@ export default function EditBillDialog({ open, onOpenChange, bill, packages, onS
           paymentMethod,
         }),
       })
-
       const data = await response.json()
-
       if (!response.ok) {
         throw new Error(data.error || "Something went wrong")
       }
-
       onSuccess()
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong")
@@ -302,7 +267,6 @@ export default function EditBillDialog({ open, onOpenChange, bill, packages, onS
       setLoading(false)
     }
   }
-
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-5xl max-h-[90vh] overflow-y-auto">
@@ -312,14 +276,12 @@ export default function EditBillDialog({ open, onOpenChange, bill, packages, onS
             Update all details for Bill #{bill._id?.toString().slice(-6).toUpperCase()}
           </DialogDescription>
         </DialogHeader>
-
         <form onSubmit={handleSubmit} className="space-y-6">
           {error && (
             <Alert variant="destructive">
               <AlertDescription>{error}</AlertDescription>
             </Alert>
           )}
-
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="space-y-2">
               <Label htmlFor="clientName">Client Name (Optional)</Label>
@@ -353,7 +315,6 @@ export default function EditBillDialog({ open, onOpenChange, bill, packages, onS
               />
             </div>
           </div>
-
           <div className="space-y-4">
             <Label className="text-base font-semibold">Select Services:</Label>
             <div className="grid gap-3 max-h-60 overflow-y-auto">
@@ -384,13 +345,11 @@ export default function EditBillDialog({ open, onOpenChange, bill, packages, onS
               ))}
             </div>
           </div>
-
           <div className="space-y-4 p-4 bg-emerald-50/50 rounded-lg border border-emerald-200">
             <div className="flex items-center gap-2">
               <Search className="h-5 w-5 text-emerald-600" />
               <h3 className="text-lg font-semibold text-emerald-800">Add Products from Inventory</h3>
             </div>
-
             <div className="space-y-2">
               <Label className="text-base font-semibold">Available Products (In Stock):</Label>
 
