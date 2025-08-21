@@ -705,7 +705,7 @@ export default function CreateBillDialog({ open, onOpenChange, packages, onSucce
           <div className="space-y-4 p-4 bg-orange-50/50 rounded-lg border border-orange-200">
             <div className="flex items-center gap-2">
               <Receipt className="h-5 w-5 text-orange-600" />
-              <h3 className="text-lg font-semibold text-orange-800">Expenditures</h3>
+              <h3 className="text-lg font-semibold text-orange-800">Complimentary Add-Ons</h3>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -716,7 +716,7 @@ export default function CreateBillDialog({ open, onOpenChange, packages, onSucce
                 <Input
                   id="expenditureName"
                   type="text"
-                  placeholder="e.g., Transportation, Utilities"
+                  placeholder="e.g., Tea, Coffee, etc."
                   value={expenditureName}
                   onChange={(e) => setExpenditureName(e.target.value)}
                   disabled={loading}
@@ -767,7 +767,7 @@ export default function CreateBillDialog({ open, onOpenChange, packages, onSucce
 
             {expenditures.length > 0 && (
               <div className="border-t border-orange-200 pt-4">
-                <h4 className="font-medium mb-2">Added Expenditures:</h4>
+                <h4 className="font-medium mb-2">Added Complimentary:</h4>
                 <div className="space-y-2">
                   {expenditures.map((exp, index) => (
                     <div key={index} className="flex justify-between items-center p-2 bg-orange-100 rounded-lg">
@@ -842,7 +842,7 @@ export default function CreateBillDialog({ open, onOpenChange, packages, onSucce
                 <span className="font-medium">₹{calculateProductSalesTotal().toFixed(2)}</span>
               </div>
               <div className="flex justify-between text-sm">
-                <span>Expenditures:</span>
+                <span>Complimentary Add-Ons:</span>
                 <span className="font-medium text-orange-600">₹{calculateExpendituresTotal().toFixed(2)}</span>
               </div>
               <div className="flex justify-between text-lg font-semibold border-t pt-2">

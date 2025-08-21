@@ -207,34 +207,6 @@ Visit us again soon! 💕`
                   <p className="text-xs text-muted-foreground">All time invoices</p>
                 </CardContent>
               </Card>
-
-              <Card className="border-border/40 hover:shadow-lg transition-all duration-300">
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Today's Packages Done</CardTitle>
-                  <Package className="h-4 w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-serif font-bold text-primary">{analytics.totalMorningPackages}</div>
-                  <p className="text-xs text-muted-foreground">
-                    {analytics.mostUsedPackage
-                      ? `Top: ${analytics.mostUsedPackage.name} (${analytics.mostUsedPackage.count}x)`
-                      : "No packages used yet"}
-                  </p>
-                </CardContent>
-              </Card>
-
-              <Card className="border-border/40 hover:shadow-lg transition-all duration-300">
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Today's Expenditures</CardTitle>
-                  <Receipt className="h-4 w-4 text-red-500" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-serif font-bold text-red-600">
-                    ₹{(analytics.todaysExpenditures || 0).toFixed(2)}
-                  </div>
-                  <p className="text-xs text-muted-foreground">Business expenses today</p>
-                </CardContent>
-              </Card>
             </div>
 
             <Card className="border-border/40">
@@ -263,7 +235,7 @@ Visit us again soon! 💕`
                       <div>Cash</div>
                       <div>Attendant By</div>
                       <div>Product Sale</div>
-                      <div>Expenditures</div>
+                      <div>Complimentary Add-Ons</div>
                       <div>Grand Total</div>
                     </div>
 

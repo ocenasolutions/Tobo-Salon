@@ -598,7 +598,7 @@ export default function EditBillDialog({ open, onOpenChange, bill, packages, onS
                 <div className="space-y-1">
                   <Label className="text-xs text-muted-foreground">Expense Name *</Label>
                   <Input
-                    placeholder="e.g., Transportation, Utilities"
+                    placeholder="e.g., Tea, Coffee, etc."
                     value={expense.name}
                     onChange={(e) => updateExpenditure(index, "name", e.target.value)}
                     disabled={loading}
