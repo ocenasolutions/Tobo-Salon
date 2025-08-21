@@ -870,10 +870,10 @@ export default function CreateBillDialog({ open, onOpenChange, packages, onSucce
               {loading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Creating Entry...
+                  Creating Bill...
                 </>
               ) : (
-                "Add to Daily Sheet"
+                "Process Bill"
               )}
             </Button>
           </div>
